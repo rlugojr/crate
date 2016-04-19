@@ -22,6 +22,7 @@
 package io.crate.integrationtests;
 
 import io.crate.action.sql.SQLActionException;
+import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -252,6 +253,11 @@ public class RegexpIntegrationTest extends SQLTransportIntegrationTest {
         execute("select * from sys.shards where table_name ~* 'LOCATIONS' order by table_name");
         assertThat(response.rowCount(), is(2L));
         assertThat((String) response.rows()[0][11], is("locations"));
+    }
+
+    @After
+    public void afterTest() throws Exception {
+        waitUntilShardOperationsFinished();
     }
 
 }
