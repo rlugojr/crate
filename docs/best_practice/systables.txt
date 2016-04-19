@@ -49,17 +49,18 @@ executed::
 
 Once you identified the dedicated job UUID, you can kill that job with
 the **KILL** command. A single job is splitted into several operations
-which run, depending on the query, on distributed nodes of your cluster.
-The table has also a hidden object attribute **_node** indicating on
+which run, depending on the query, on distributed nodes of your
+cluster. The table has also a system column **_node** indicating on
 which node Crate actually executes the operation::
 
     cr> SELECT _node['name'], _node['hostname'], * FROM sys.operations;
     ...
 
-Find out more about the **_node** object in the next sections. If there
-are no current jobs nor operations that are causing problems, check the
-recorded history of finished jobs and operations in the tables
-**sys.jobs_log** and **sys.operations_log**, respectively.
+Find out more about the **_node** system column in the next
+sections. If there are no current jobs nor operations that are causing
+problems, check the recorded history of finished jobs and operations
+in the tables **sys.jobs_log** and **sys.operations_log**,
+respectively.
 
 Step 3: Analyzing Cluster Resources
 ===================================
@@ -93,7 +94,7 @@ disk, memory, heap, or network throughput. Running::
     ...
 
 lists all available attributes. This object has the same structure as
-the **_node** attribute of **sys.operations** from the previous
+the **_node** system column of **sys.operations** from the previous
 section.
 
 Step 4: Insights about Partitions, Shards, and Replication
@@ -120,21 +121,23 @@ state indicators on the admin UI evaluate these values as well.
 The **sys.shards** table contains even more information about the
 rebalancing activities. Whenever Crate needs to copy one shard to
 another node -- since that may be necessary to ensure there are enough
-replica of it distributed in the cluster -- you can monitor the progress
-of that operation with the **recovery** object::
+replica of it distributed in the cluster -- you can estimate the
+finishing of that operation with the **recovery** object::
 
     cr> SELECT DISTINCT partition_ident, recovery['size']['percent'], recovery['total_time'] FROM sys.shards WHERE primary;
     ...
 
 To find out on which specific node a shard is stored, also use the
-_node object that is available for this table. As an example::
+object in the **_node** system column that is available for this
+table. As an example::
 
     cr> SELECT _node['hostname'], table_name, num_docs FROM sys.shards ORDER BY num_docs DESC LIMIT 3;
     ...
 
 list the hosts and tables with the highest number of rows inside a
 single shard. There’s a lot of additional information available for
-shards. To find out more about that, see our documentation.
+shards. To find out more about that, see our
+[documentation](https://crate.io/docs/reference/best_practice/data_import.html#shards-replicas).
 
 Step 5: Managing Snapshots
 ==========================
@@ -152,7 +155,7 @@ you forgot where you store your snapshots::
     ...
 
 might come in handy. To actually recover data, first determine which
-snapshot to roll back. Suppose you make nightly backups, the command::
+snapshot to restore. Suppose you make nightly backups, the command::
 
     cr> SELECT * FROM sys.snapshots ORDER BY started DESC LIMIT 7;
     ...
