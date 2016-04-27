@@ -21,7 +21,11 @@ of health checks, you may know from the admin UI. Order them by
 severity::
 
     cr> SELECT description FROM sys.checks WHERE NOT passed ORDER BY severity DESC;
-    ...
+    +-------------+
+    | description |      
+    +-------------+
+    +-------------+
+    SELECT ... rows in set (... sec)
 
 If a check fails, the description offers some explanation on how to
 proceed. The table reports checks that verify your cluster layout, give
@@ -45,7 +49,12 @@ got parsed and planned is listed in the **sys.jobs** table while it’s
 executed::
 
     cr> SELECT id as job_uuid, date_format(started) AS start, stmt FROM sys.jobs;
+    +--------------------------------------+-----------------------------+-------------------------------------...----------------------------------+
+    | job_uuid                             | start                       | stmt                                                                     |
+    +--------------------------------------+-----------------------------+-------------------------------------...----------------------------------+
     ...
+    +--------------------------------------+-----------------------------+-------------------------------------...----------------------------------+
+    SELECT ... rows in set (... sec)
 
 Once you identified the dedicated job UUID, you can kill that job with
 the **KILL** command. A single job is splitted into several operations
@@ -54,7 +63,12 @@ cluster. The table has also a system column **_node** indicating on
 which node Crate actually executes the operation::
 
     cr> SELECT _node['name'], _node['hostname'], * FROM sys.operations;
+    +---------------+------------------...+----+---------------...+---------+---------------+------------+
+    | _node['name'] | _node['hostname']   | id | job_id           | name    |       started | used_bytes |
+    +---------------+------------------...+----+---------------...+---------+---------------+------------+
     ...
+    +---------------+------------------...+----+---------------...+---------+---------------+------------+
+    SELECT ... row in set (... sec)    
 
 Find out more about the **_node** system column in the next
 sections. If there are no current jobs nor operations that are causing
@@ -72,7 +86,107 @@ the current master along with several other settings. To list all
 available data, run::
 
     cr> SHOW COLUMNS IN cluster FROM sys;
-    ...
+    +-----------------------------------------------------------------------------------+--------------+
+    | column_name                                                                       | data_type    |
+    +-----------------------------------------------------------------------------------+--------------+
+    | id                                                                                | string       |
+    | master_node                                                                       | string       |
+    | name                                                                              | string       |
+    | settings                                                                          | object       |
+    | settings['bulk']                                                                  | object       |
+    | settings['bulk']['request_timeout']                                               | string       |
+    | settings['cluster']                                                               | object       |
+    | settings['cluster']['graceful_stop']                                              | object       |
+    | settings['cluster']['graceful_stop']['force']                                     | boolean      |
+    | settings['cluster']['graceful_stop']['min_availability']                          | string       |
+    | settings['cluster']['graceful_stop']['reallocate']                                | boolean      |
+    | settings['cluster']['graceful_stop']['timeout']                                   | string       |
+    | settings['cluster']['info']                                                       | object       |
+    | settings['cluster']['info']['update']                                             | object       |
+    | settings['cluster']['info']['update']['interval']                                 | string       |
+    | settings['cluster']['routing']                                                    | object       |
+    | settings['cluster']['routing']['allocation']                                      | object       |
+    | settings['cluster']['routing']['allocation']['allow_rebalance']                   | string       |
+    | settings['cluster']['routing']['allocation']['balance']                           | object       |
+    | settings['cluster']['routing']['allocation']['balance']['index']                  | float        |
+    | settings['cluster']['routing']['allocation']['balance']['primary']                | float        |
+    | settings['cluster']['routing']['allocation']['balance']['shard']                  | float        |
+    | settings['cluster']['routing']['allocation']['balance']['threshold']              | float        |
+    | settings['cluster']['routing']['allocation']['cluster_concurrent_rebalance']      | integer      |
+    | settings['cluster']['routing']['allocation']['disk']                              | object       |
+    | settings['cluster']['routing']['allocation']['disk']['threshold_enabled']         | boolean      |
+    | settings['cluster']['routing']['allocation']['disk']['watermark']                 | object       |
+    | settings['cluster']['routing']['allocation']['disk']['watermark']['high']         | string       |
+    | settings['cluster']['routing']['allocation']['disk']['watermark']['low']          | string       |
+    | settings['cluster']['routing']['allocation']['enable']                            | string       |
+    | settings['cluster']['routing']['allocation']['exclude']                           | object       |
+    | settings['cluster']['routing']['allocation']['exclude']['_host']                  | string       |
+    | settings['cluster']['routing']['allocation']['exclude']['_id']                    | string       |
+    | settings['cluster']['routing']['allocation']['exclude']['_ip']                    | string       |
+    | settings['cluster']['routing']['allocation']['exclude']['_name']                  | string       |
+    | settings['cluster']['routing']['allocation']['include']                           | object       |
+    | settings['cluster']['routing']['allocation']['include']['_host']                  | string       |
+    | settings['cluster']['routing']['allocation']['include']['_id']                    | string       |
+    | settings['cluster']['routing']['allocation']['include']['_ip']                    | string       |
+    | settings['cluster']['routing']['allocation']['include']['_name']                  | string       |
+    | settings['cluster']['routing']['allocation']['node_concurrent_recoveries']        | integer      |
+    | settings['cluster']['routing']['allocation']['node_initial_primaries_recoveries'] | integer      |
+    | settings['cluster']['routing']['allocation']['require']                           | object       |
+    | settings['cluster']['routing']['allocation']['require']['_host']                  | string       |
+    | settings['cluster']['routing']['allocation']['require']['_id']                    | string       |
+    | settings['cluster']['routing']['allocation']['require']['_ip']                    | string       |
+    | settings['cluster']['routing']['allocation']['require']['_name']                  | string       |
+    | settings['discovery']                                                             | object       |
+    | settings['discovery']['zen']                                                      | object       |
+    | settings['discovery']['zen']['minimum_master_nodes']                              | integer      |
+    | settings['discovery']['zen']['ping_timeout']                                      | string       |
+    | settings['discovery']['zen']['publish_timeout']                                   | string       |
+    | settings['gateway']                                                               | object       |
+    | settings['gateway']['expected_nodes']                                             | integer      |
+    | settings['gateway']['recover_after_nodes']                                        | integer      |
+    | settings['gateway']['recover_after_time']                                         | string       |
+    | settings['indices']                                                               | object       |
+    | settings['indices']['breaker']                                                    | object       |
+    | settings['indices']['breaker']['query']                                           | object       |
+    | settings['indices']['breaker']['query']['limit']                                  | string       |
+    | settings['indices']['breaker']['query']['overhead']                               | double       |
+    | settings['indices']['breaker']['request']                                         | object       |
+    | settings['indices']['breaker']['request']['limit']                                | string       |
+    | settings['indices']['breaker']['request']['overhead']                             | double       |
+    | settings['indices']['fielddata']                                                  | object       |
+    | settings['indices']['fielddata']['breaker']                                       | object       |
+    | settings['indices']['fielddata']['breaker']['limit']                              | string       |
+    | settings['indices']['fielddata']['breaker']['overhead']                           | double       |
+    | settings['indices']['recovery']                                                   | object       |
+    | settings['indices']['recovery']['activity_timeout']                               | string       |
+    | settings['indices']['recovery']['compress']                                       | boolean      |
+    | settings['indices']['recovery']['concurrent_streams']                             | integer      |
+    | settings['indices']['recovery']['file_chunk_size']                                | string       |
+    | settings['indices']['recovery']['internal_action_long_timeout']                   | string       |
+    | settings['indices']['recovery']['internal_action_timeout']                        | string       |
+    | settings['indices']['recovery']['max_bytes_per_sec']                              | string       |
+    | settings['indices']['recovery']['retry_delay_network']                            | string       |
+    | settings['indices']['recovery']['retry_delay_state_sync']                         | string       |
+    | settings['indices']['recovery']['translog_ops']                                   | integer      |
+    | settings['indices']['recovery']['translog_size']                                  | string       |
+    | settings['indices']['store']                                                      | object       |
+    | settings['indices']['store']['throttle']                                          | object       |
+    | settings['indices']['store']['throttle']['max_bytes_per_sec']                     | string       |
+    | settings['indices']['store']['throttle']['type']                                  | string       |
+    | settings['logger']                                                                | object_array |
+    | settings['logger']['level']                                                       | string       |
+    | settings['logger']['name']                                                        | string       |
+    | settings['stats']                                                                 | object       |
+    | settings['stats']['enabled']                                                      | boolean      |
+    | settings['stats']['jobs_log_size']                                                | integer      |
+    | settings['stats']['operations_log_size']                                          | integer      |
+    | settings['udc']                                                                   | object       |
+    | settings['udc']['enabled']                                                        | boolean      |
+    | settings['udc']['initial_delay']                                                  | string       |
+    | settings['udc']['interval']                                                       | string       |
+    | settings['udc']['url']                                                            | string       |
+    +-----------------------------------------------------------------------------------+--------------+   
+    SHOW 96 rows in set (... sec)
 
 While **sys.cluster** contains information about the cluster as a whole,
 **sys.nodes** maintains more detailed information about each Crate
@@ -80,18 +194,130 @@ instance. This can be useful to track down misbehaving data nodes since
 its CPU is overloaded or it has an outdated Java version::
 
     cr> SELECT name, load['1'], os_info['jvm']['version'] FROM sys.nodes;
+    +-------+--------...+------------------------...+
+    | name  | load['1'] | os_info['jvm']['version'] |
+    +-------+--------...+------------------------...+
     ...
+    +-------+--------...+------------------------...+
+    SELECT ... row in set (... sec)    
 
-To list all nodes using more than 90 per cent of the memory, type::
+To list all nodes using more than 98 per cent of the memory, type::
 
-    cr> SELECT * FROM sys.nodes WHERE mem['used_percent'] > 90;
+    cr> SELECT * FROM sys.nodes WHERE mem['used_percent'] > 98;
+    +--...+---...+------...-+-...+---...+--...+---...+------...+-...+------...+---...+-----...-+-------...+----------...-+------...+
+    | fs  | heap | hostname | id | load | mem | name | network | os | os_info | port | process | rest_url | thread_pools | version |
+    +--...+---...+------...-+-...+---...+--...+---...+------...+-...+------...+---...+------...+-------...+----------...-+------...+
     ...
+    SELECT ... rows in set (... sec)
 
 The table also contains the performance metrics like the load average,
 disk, memory, heap, or network throughput. Running::
 
     cr> SHOW columns IN nodes FROM sys;
-    ...
+    +----------------------------------------------------+--------------+
+    | column_name                                        | data_type    |
+    +----------------------------------------------------+--------------+
+    | fs                                                 | object       |
+    | fs['data']                                         | object_array |
+    | fs['data']['dev']                                  | string       |
+    | fs['data']['path']                                 | string       |
+    | fs['disks']                                        | object_array |
+    | fs['disks']['available']                           | long         |
+    | fs['disks']['bytes_read']                          | long         |
+    | fs['disks']['bytes_written']                       | long         |
+    | fs['disks']['dev']                                 | string       |
+    | fs['disks']['reads']                               | long         |
+    | fs['disks']['size']                                | long         |
+    | fs['disks']['used']                                | long         |
+    | fs['disks']['writes']                              | long         |
+    | fs['total']                                        | object       |
+    | fs['total']['available']                           | long         |
+    | fs['total']['bytes_read']                          | long         |
+    | fs['total']['bytes_written']                       | long         |
+    | fs['total']['reads']                               | long         |
+    | fs['total']['size']                                | long         |
+    | fs['total']['used']                                | long         |
+    | fs['total']['writes']                              | long         |
+    | heap                                               | object       |
+    | heap['free']                                       | long         |
+    | heap['max']                                        | long         |
+    | heap['probe_timestamp']                            | timestamp    |
+    | heap['used']                                       | long         |
+    | hostname                                           | string       |
+    | id                                                 | string       |
+    | load                                               | object       |
+    | load['1']                                          | double       |
+    | load['15']                                         | double       |
+    | load['5']                                          | double       |
+    | load['probe_timestamp']                            | timestamp    |
+    | mem                                                | object       |
+    | mem['free']                                        | long         |
+    | mem['free_percent']                                | short        |
+    | mem['probe_timestamp']                             | timestamp    |
+    | mem['used']                                        | long         |
+    | mem['used_percent']                                | short        |
+    | name                                               | string       |
+    | network                                            | object       |
+    | network['probe_timestamp']                         | timestamp    |
+    | network['tcp']                                     | object       |
+    | network['tcp']['connections']                      | object       |
+    | network['tcp']['connections']['accepted']          | long         |
+    | network['tcp']['connections']['curr_established']  | long         |
+    | network['tcp']['connections']['dropped']           | long         |
+    | network['tcp']['connections']['embryonic_dropped'] | long         |
+    | network['tcp']['connections']['initiated']         | long         |
+    | network['tcp']['packets']                          | object       |
+    | network['tcp']['packets']['errors_received']       | long         |
+    | network['tcp']['packets']['received']              | long         |
+    | network['tcp']['packets']['retransmitted']         | long         |
+    | network['tcp']['packets']['rst_sent']              | long         |
+    | network['tcp']['packets']['sent']                  | long         |
+    | os                                                 | object       |
+    | os['cpu']                                          | object       |
+    | os['cpu']['idle']                                  | short        |
+    | os['cpu']['stolen']                                | short        |
+    | os['cpu']['system']                                | short        |
+    | os['cpu']['used']                                  | short        |
+    | os['cpu']['user']                                  | short        |
+    | os['probe_timestamp']                              | timestamp    |
+    | os['timestamp']                                    | timestamp    |
+    | os['uptime']                                       | long         |
+    | os_info                                            | object       |
+    | os_info['arch']                                    | string       |
+    | os_info['available_processors']                    | integer      |
+    | os_info['jvm']                                     | object       |
+    | os_info['jvm']['version']                          | string       |
+    | os_info['jvm']['vm_name']                          | string       |
+    | os_info['jvm']['vm_vendor']                        | string       |
+    | os_info['jvm']['vm_version']                       | string       |
+    | os_info['name']                                    | string       |
+    | os_info['version']                                 | string       |
+    | port                                               | object       |
+    | port['http']                                       | integer      |
+    | port['transport']                                  | integer      |
+    | process                                            | object       |
+    | process['cpu']                                     | object       |
+    | process['cpu']['percent']                          | short        |
+    | process['cpu']['system']                           | long         |
+    | process['cpu']['user']                             | long         |
+    | process['max_open_file_descriptors']               | long         |
+    | process['open_file_descriptors']                   | long         |
+    | process['probe_timestamp']                         | timestamp    |
+    | rest_url                                           | string       |
+    | thread_pools                                       | object_array |
+    | thread_pools['active']                             | integer      |
+    | thread_pools['completed']                          | long         |
+    | thread_pools['largest']                            | integer      |
+    | thread_pools['name']                               | string       |
+    | thread_pools['queue']                              | integer      |
+    | thread_pools['rejected']                           | long         |
+    | thread_pools['threads']                            | integer      |
+    | version                                            | object       |
+    | version['build_hash']                              | string       |
+    | version['build_snapshot']                          | boolean      |
+    | version['number']                                  | string       |
+    +----------------------------------------------------+--------------+
+    SHOW 99 rows in set (... sec)
 
 lists all available attributes. This object has the same structure as
 the **_node** system column of **sys.operations** from the previous
@@ -109,7 +335,36 @@ find out some more about these data structures. The **sys.shards** table
 provides access to the status and size of shards, its names and IDs::
 
     cr> SHOW COLUMNS IN shards FROM sys;
-    ...
+    +--------------------------------+-----------+
+    | column_name                    | data_type |
+    +--------------------------------+-----------+
+    | id                             | integer   |
+    | num_docs                       | long      |
+    | orphan_partition               | boolean   |
+    | partition_ident                | string    |
+    | primary                        | boolean   |
+    | recovery                       | object    |
+    | recovery['files']              | object    |
+    | recovery['files']['percent']   | float     |
+    | recovery['files']['recovered'] | integer   |
+    | recovery['files']['reused']    | integer   |
+    | recovery['files']['used']      | integer   |
+    | recovery['size']               | object    |
+    | recovery['size']['percent']    | float     |
+    | recovery['size']['recovered']  | long      |
+    | recovery['size']['reused']     | long      |
+    | recovery['size']['used']       | long      |
+    | recovery['stage']              | string    |
+    | recovery['total_time']         | long      |
+    | recovery['type']               | string    |
+    | relocating_node                | string    |
+    | routing_state                  | string    |
+    | schema_name                    | string    |
+    | size                           | long      |
+    | state                          | string    |
+    | table_name                     | string    |
+    +--------------------------------+-----------+
+    SHOW 25 rows in set (... sec)
 
 The cluster state is somewhat delicate when nodes join or leave, since
 in those situations shards have to be rearranged to ensure that each of
@@ -125,14 +380,24 @@ replica of it distributed in the cluster -- you can estimate the
 finishing of that operation with the **recovery** object::
 
     cr> SELECT DISTINCT partition_ident, recovery['size']['percent'], recovery['total_time'] FROM sys.shards WHERE primary;
+    +--------------------+-----------------------------+------------------------+
+    | partition_ident    | recovery['size']['percent'] | recovery['total_time'] |
+    +--------------------+-----------------------------+------------------------+
     ...
+    +--------------------+-----------------------------+------------------------+
+    SELECT ... rows in set (... sec)
 
 To find out on which specific node a shard is stored, also use the
 object in the **_node** system column that is available for this
 table. As an example::
 
     cr> SELECT _node['hostname'], table_name, num_docs FROM sys.shards ORDER BY num_docs DESC LIMIT 3;
+    +-------------------...+-----------...-+----------+
+    | _node['hostname']    | table_name    | num_docs |
+    +-------------------...+------------...+----------+
     ...
+    +-------------------...+------------...+----------+
+    SELECT ... rows in set (... sec)
 
 list the hosts and tables with the highest number of rows inside a
 single shard. There’s a lot of additional information available for
@@ -152,13 +417,21 @@ current database state is made with the **CREATE SNAPSHOT** command. If
 you forgot where you store your snapshots::
 
     cr> SELECT * FROM sys.repositories;
-    ...
+    +------+----------+------+
+    | name | settings | type |
+    +------+----------+------+
+    +------+----------+------+
+    SELECT ... rows in set (... sec)    
 
 might come in handy. To actually recover data, first determine which
 snapshot to restore. Suppose you make nightly backups, the command::
 
     cr> SELECT * FROM sys.snapshots ORDER BY started DESC LIMIT 7;
-    ...
+    +------------------+----------+------+------------+---------+-------+---------+
+    | concrete_indices | finished | name | repository | started | state | version |
+    +------------------+----------+------+------------+---------+-------+---------+
+    +------------------+----------+------+------------+---------+-------+---------+
+    SELECT ... rows in set (... sec)
 
 shows you last week’s snapshots along with its name, the stored indices,
 and how long they took.
