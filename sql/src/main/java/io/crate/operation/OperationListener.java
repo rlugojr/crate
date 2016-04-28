@@ -20,13 +20,17 @@
  * agreement.
  */
 
-package io.crate.operation.projectors;
+package io.crate.operation;
 
-import io.crate.operation.RowUpstream;
+import javax.annotation.Nullable;
 
-public interface Projector extends RowReceiver, RowUpstream {
+public interface OperationListener {
 
-    void downstream(RowReceiver rowDownstreamHandle);
+    OperationListener NO_OP = new OperationListener() {
+        @Override
+        public void onDone(@Nullable Throwable t) {
+        }
+    };
 
-    RowReceiver downstream();
+    void onDone(@Nullable Throwable t);
 }

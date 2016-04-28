@@ -46,6 +46,8 @@ public interface ExecutionSubContext {
 
     void kill(@Nullable Throwable throwable);
 
+    void done(@Nullable Throwable throwable);
+
     String name();
 
     SubExecutionContextFuture future();

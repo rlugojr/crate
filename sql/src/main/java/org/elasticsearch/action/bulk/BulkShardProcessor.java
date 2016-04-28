@@ -36,6 +36,9 @@ import io.crate.exceptions.JobKilledException;
 import io.crate.executor.transport.ShardRequest;
 import io.crate.executor.transport.ShardResponse;
 import io.crate.metadata.PartitionName;
+import io.crate.operation.OperationListener;
+import io.crate.operation.OperationMultiListener;
+import io.crate.operation.OperationObserver;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.create.BulkCreateIndicesRequest;
 import org.elasticsearch.action.admin.indices.create.BulkCreateIndicesResponse;
@@ -63,9 +66,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * If the Bulk threadPool Queue is full retries are made and
  * the {@link #add} method will start to block.
  */
-public class BulkShardProcessor<Request extends ShardRequest> {
+public class BulkShardProcessor<Request extends ShardRequest> implements OperationObserver {
 
     public static final int MAX_CREATE_INDICES_BULK_SIZE = 100;
+    private static final ESLogger LOGGER = Loggers.getLogger(BulkShardProcessor.class);
 
     private final boolean autoCreateIndices;
     private final Predicate<String> shouldAutocreateIndexPredicate;
@@ -99,7 +103,7 @@ public class BulkShardProcessor<Request extends ShardRequest> {
     private final BulkRequestBuilder<Request> requestBuilder;
     private final BulkRequestExecutor<Request> requestExecutor;
 
-    private static final ESLogger LOGGER = Loggers.getLogger(BulkShardProcessor.class);
+    private OperationListener listener = OperationListener.NO_OP;
 
     public BulkShardProcessor(ClusterService clusterService,
                               TransportBulkCreateIndicesAction transportBulkCreateIndicesAction,
@@ -368,13 +372,20 @@ public class BulkShardProcessor<Request extends ShardRequest> {
     }
 
     public void kill(@Nullable Throwable throwable) {
+        if (throwable != null) {
+            throwable = new InterruptedException(JobKilledException.MESSAGE);
+        }
         failure.compareAndSet(null, throwable);
-        result.setException(new InterruptedException(JobKilledException.MESSAGE));
     }
 
     private void setFailure(Throwable e) {
         failure.compareAndSet(null, e);
         result.setException(e);
+    }
+
+    @Override
+    public void addListener(OperationListener listener) {
+        this.listener = OperationMultiListener.merge(this.listener, listener);
     }
 
     private void setResult() {
@@ -384,6 +395,7 @@ public class BulkShardProcessor<Request extends ShardRequest> {
         } else {
             result.setException(throwable);
         }
+        listener.onDone(throwable);
     }
 
     private void setResultIfDone(int successes) {

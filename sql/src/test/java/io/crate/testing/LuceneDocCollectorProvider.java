@@ -36,11 +36,11 @@ import io.crate.operation.collect.CrateCollector;
 import io.crate.operation.collect.JobCollectContext;
 import io.crate.operation.collect.MapSideDataCollectOperation;
 import io.crate.operation.projectors.RowReceiver;
+import io.crate.operation.OperationObserver;
 import io.crate.planner.Planner;
 import io.crate.planner.consumer.ConsumerContext;
 import io.crate.planner.consumer.QueryAndFetchConsumer;
 import io.crate.planner.node.dql.CollectAndMerge;
-import io.crate.planner.node.dql.FileUriCollectPhase;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import io.crate.sql.parser.SqlParser;
 import org.elasticsearch.common.breaker.CircuitBreaker;
@@ -74,7 +74,7 @@ public class LuceneDocCollectorProvider implements AutoCloseable {
         this.queryAndFetchConsumer = cluster.getDataNodeInstance(QueryAndFetchConsumer.class);
     }
 
-    private Iterable<CrateCollector> createNodeCollectors(String nodeId, RoutedCollectPhase collectPhase, RowReceiver downstream) {
+    private Iterable<CrateCollector> createNodeCollectors(String nodeId, RoutedCollectPhase collectPhase, RowReceiver rowReceiver) {
         String nodeName = cluster.clusterService().state().nodes().get(nodeId).name();
         IndicesService indicesService = cluster.getInstance(IndicesService.class, nodeName);
         JobContextService jobContextService = cluster.getInstance(JobContextService.class, nodeName);
@@ -82,16 +82,17 @@ public class LuceneDocCollectorProvider implements AutoCloseable {
 
         SharedShardContexts sharedShardContexts = new SharedShardContexts(indicesService);
         JobExecutionContext.Builder builder = jobContextService.newBuilder(collectPhase.jobId());
+        OperationObserver operationObserver = (OperationObserver) rowReceiver;
         JobCollectContext jobCollectContext = new JobCollectContext(
                 collectPhase, collectOperation,  cluster.clusterService().state().nodes().localNodeId(),
-                RAM_ACCOUNTING_CONTEXT, downstream, sharedShardContexts);
+                RAM_ACCOUNTING_CONTEXT, rowReceiver, operationObserver, sharedShardContexts);
         collectContexts.add(jobCollectContext);
         builder.addSubContext(jobCollectContext);
         jobContextService.createContext(builder);
 
         return collectOperation.createCollectors(
             collectPhase,
-            downstream,
+            rowReceiver,
             jobCollectContext
         );
     }

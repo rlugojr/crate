@@ -85,4 +85,9 @@ public class QueryResultRowDownstream implements RowReceiver {
     @Override
     public void setUpstream(RowUpstream rowUpstream) {
     }
+
+    @Override
+    public boolean isSynchronous() {
+        return true;
+    }
 }

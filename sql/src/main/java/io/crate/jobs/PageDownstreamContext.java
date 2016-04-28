@@ -198,6 +198,9 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
 
         future.bytesUsed(ramAccountingContext.totalBytes());
         ramAccountingContext.close();
+
+        // TODO: this must be called by pageDownstream when finished/failed
+        done(throwable);
     }
 
     @Override

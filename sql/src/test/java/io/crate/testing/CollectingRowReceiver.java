@@ -28,10 +28,11 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.CollectionBucket;
 import io.crate.core.collections.Row;
+import io.crate.operation.OperationListener;
+import io.crate.operation.OperationMultiListener;
+import io.crate.operation.OperationObserver;
 import io.crate.operation.RowUpstream;
-import io.crate.operation.projectors.Requirement;
-import io.crate.operation.projectors.Requirements;
-import io.crate.operation.projectors.RowReceiver;
+import io.crate.operation.projectors.*;
 import org.elasticsearch.common.unit.TimeValue;
 
 import java.util.ArrayList;
@@ -41,12 +42,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public class CollectingRowReceiver implements RowReceiver {
+public class CollectingRowReceiver implements RowReceiver, OperationObserver {
 
     public final List<Object[]> rows = new ArrayList<>();
     protected final SettableFuture<Bucket> resultFuture = SettableFuture.create();
     protected int numFailOrFinish = 0;
     protected RowUpstream upstream;
+    private OperationListener listener = OperationListener.NO_OP;
 
     public static CollectingRowReceiver withPauseAfter(int pauseAfter) {
         return new PausingReceiver(pauseAfter);
@@ -88,6 +90,7 @@ public class CollectingRowReceiver implements RowReceiver {
     public void finish() {
         resultFuture.set(new CollectionBucket(rows));
         numFailOrFinish++;
+        listener.onDone(null);
     }
 
     public int getNumFailOrFinishCalls() {
@@ -102,6 +105,7 @@ public class CollectingRowReceiver implements RowReceiver {
     public void fail(Throwable throwable) {
         resultFuture.setException(throwable);
         numFailOrFinish++;
+        listener.onDone(throwable);
     }
 
     public void resumeUpstream(boolean async) {
@@ -132,6 +136,16 @@ public class CollectingRowReceiver implements RowReceiver {
 
     public void repeatUpstream() {
         upstream.repeat();
+    }
+
+    @Override
+    public void addListener(OperationListener listener) {
+        this.listener = OperationMultiListener.merge(this.listener, listener);
+    }
+
+    @Override
+    public boolean isSynchronous() {
+        return true;
     }
 
     private static class LimitingReceiver extends CollectingRowReceiver {

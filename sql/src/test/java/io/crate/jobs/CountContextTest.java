@@ -50,7 +50,9 @@ public class CountContextTest extends CrateUnitTest {
         CountOperation countOperation = mock(CountOperation.class);
         when(countOperation.count(anyMap(), any(WhereClause.class))).thenReturn(future);
 
-        CountContext countContext = new CountContext(1, countOperation, new CollectingRowReceiver(), null, WhereClause.MATCH_ALL);
+        CollectingRowReceiver rowReceiverAndOperationObserver = new CollectingRowReceiver();
+        CountContext countContext = new CountContext(1, countOperation, rowReceiverAndOperationObserver,
+            rowReceiverAndOperationObserver, null, WhereClause.MATCH_ALL);
         countContext.prepare();
         countContext.start();
         future.set(1L);
@@ -62,7 +64,9 @@ public class CountContextTest extends CrateUnitTest {
         future = SettableFuture.create();
         when(countOperation.count(anyMap(), any(WhereClause.class))).thenReturn(future);
 
-        countContext = new CountContext(2, countOperation, new CollectingRowReceiver(), null, WhereClause.MATCH_ALL);
+        rowReceiverAndOperationObserver = new CollectingRowReceiver();
+        countContext = new CountContext(2, countOperation, rowReceiverAndOperationObserver,
+            rowReceiverAndOperationObserver, null, WhereClause.MATCH_ALL);
         countContext.prepare();
         countContext.start();
         future.setException(new UnknownUpstreamFailure());
@@ -76,7 +80,9 @@ public class CountContextTest extends CrateUnitTest {
         ListenableFuture<Long> future = mock(ListenableFuture.class);
         CountOperation countOperation = new FakeCountOperation(future);
 
-        CountContext countContext = new CountContext(1, countOperation, new CollectingRowReceiver(), null, WhereClause.MATCH_ALL);
+        CollectingRowReceiver rowReceiverAndOperationObserver = new CollectingRowReceiver();
+        CountContext countContext = new CountContext(1, countOperation, rowReceiverAndOperationObserver,
+            rowReceiverAndOperationObserver, null, WhereClause.MATCH_ALL);
 
         countContext.prepare();
         countContext.start();

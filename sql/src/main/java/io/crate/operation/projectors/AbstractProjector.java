@@ -45,6 +45,11 @@ public abstract class AbstractProjector implements Projector {
     }
 
     @Override
+    public RowReceiver downstream() {
+        return downstream;
+    }
+
+    @Override
     public void prepare() {
     }
 
@@ -77,6 +82,11 @@ public abstract class AbstractProjector implements Projector {
     public void setUpstream(RowUpstream upstream) {
         assert upstream != null : "upstream must not be null";
         this.upstream = upstream;
+    }
+
+    @Override
+    public boolean isSynchronous() {
+        return downstream.isSynchronous();
     }
 
     private static class StateCheckRowUpstream implements RowUpstream {
@@ -136,6 +146,11 @@ public abstract class AbstractProjector implements Projector {
         @Override
         public Set<Requirement> requirements() {
             throw new IllegalStateException(STATE_ERROR);
+        }
+
+        @Override
+        public boolean isSynchronous() {
+            return true;
         }
     }
 }

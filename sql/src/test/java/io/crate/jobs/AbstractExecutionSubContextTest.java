@@ -106,11 +106,13 @@ public abstract class AbstractExecutionSubContextTest extends CrateUnitTest {
         @Override
         protected void innerClose(@Nullable Throwable t) {
             numClose.incrementAndGet();
+            done(t);
         }
 
         @Override
         protected void innerKill(@Nonnull Throwable t) {
             numKill.incrementAndGet();
+            done(t);
         }
 
         @Override

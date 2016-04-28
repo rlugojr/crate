@@ -20,13 +20,10 @@
  * agreement.
  */
 
-package io.crate.operation.projectors;
+package io.crate.operation;
 
-import io.crate.operation.RowUpstream;
+public interface OperationObserver {
 
-public interface Projector extends RowReceiver, RowUpstream {
+    void addListener(OperationListener listener);
 
-    void downstream(RowReceiver rowDownstreamHandle);
-
-    RowReceiver downstream();
 }

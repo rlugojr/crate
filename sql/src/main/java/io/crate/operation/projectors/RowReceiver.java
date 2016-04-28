@@ -89,4 +89,10 @@ public interface RowReceiver {
      * This can be used to switch to optimized implementations if something isn't/is requirement
      */
     Set<Requirement> requirements();
+
+    /**
+     * Specifies if the implementation works synchronous on {@link #finish()} and {@link #fail(Throwable)}
+     * If so, implementation can be wrapped by a {@link RowReceivers.ObservedRowReceiver}
+     */
+    boolean isSynchronous();
 }

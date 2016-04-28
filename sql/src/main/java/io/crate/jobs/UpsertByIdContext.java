@@ -116,6 +116,7 @@ public class UpsertByIdContext extends AbstractExecutionSubContext {
     @Override
     public void innerKill(@Nonnull Throwable throwable) {
         futureResult.cancel(true);
+        done(throwable);
     }
 
     @Override
@@ -127,6 +128,7 @@ public class UpsertByIdContext extends AbstractExecutionSubContext {
                 futureResult.setException(t);
             }
         }
+        done(t);
     }
 
     @Override

@@ -90,7 +90,6 @@ public abstract class AbstractExecutionSubContext implements ExecutionSubContext
             } finally {
                 cleanup();
             }
-            future.close(t);
             return true;
         }
         return false;
@@ -115,10 +114,14 @@ public abstract class AbstractExecutionSubContext implements ExecutionSubContext
             } catch (Throwable t2) {
                 logger.warn("killing due to exception, but killing also throws exception", t2);
             } finally {
-                cleanup();
+                //cleanup();
             }
-            future.close(t);
         }
+    }
+
+    @Override
+    public void done(@Nullable Throwable throwable) {
+        future.close(throwable);
     }
 
     @Override

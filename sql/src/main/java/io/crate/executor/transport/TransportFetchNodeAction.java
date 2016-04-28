@@ -107,6 +107,7 @@ public class TransportFetchNodeAction implements NodeAction<NodeFetchRequest, No
                     FetchContext fetchContext = ctx.getSubContextOrNull(request.fetchPhaseId());
                     if (fetchContext != null) {
                         fetchContext.close();
+                        fetchContext.done(null);
                     }
                 }
                 fetchResponse.onResponse(NodeFetchResponse.EMPTY);
@@ -120,6 +121,7 @@ public class TransportFetchNodeAction implements NodeAction<NodeFetchRequest, No
                 @Override
                 public void onFailure(Throwable t) {
                     fetchContext.kill(t);
+                    fetchContext.done(t);
                     fetchResponse.onFailure(t);
                     statsTables.operationFinished(request.fetchPhaseId(), request.jobId(), Exceptions.messageOf(t),
                             ramAccountingContext.totalBytes());
@@ -132,6 +134,7 @@ public class TransportFetchNodeAction implements NodeAction<NodeFetchRequest, No
                     // no streamers needed to serialize, since the buckets are StreamBuckets
                     NodeFetchResponse response = NodeFetchResponse.forSending(fetched);
                     fetchContext.close();
+                    fetchContext.done(null);
                     fetchResponse.onResponse(response);
                     statsTables.operationFinished(request.fetchPhaseId(), request.jobId(), null,
                             ramAccountingContext.totalBytes());

@@ -59,13 +59,15 @@ public class JobCollectContextTest extends RandomizedTest {
         when(routing.containsShards(localNodeId)).thenReturn(true);
         when(collectPhase.routing()).thenReturn(routing);
         when(collectPhase.maxRowGranularity()).thenReturn(RowGranularity.DOC);
+        CollectingRowReceiver rowReceiver = new CollectingRowReceiver();
         jobCollectContext = new JobCollectContext(
-                collectPhase,
-                mock(MapSideDataCollectOperation.class),
-                localNodeId,
-                ramAccountingContext,
-                new CollectingRowReceiver(),
-                mock(SharedShardContexts.class));
+            collectPhase,
+            mock(MapSideDataCollectOperation.class),
+            localNodeId,
+            ramAccountingContext,
+            rowReceiver,
+            rowReceiver,
+            mock(SharedShardContexts.class));
     }
 
     @Test
@@ -105,12 +107,13 @@ public class JobCollectContextTest extends RandomizedTest {
         CollectingRowReceiver rowReceiver = new CollectingRowReceiver();
 
         JobCollectContext jobCtx = new JobCollectContext(
-                collectPhase,
-                collectOperationMock,
-                "localNodeId",
-                ramAccountingContext,
-                rowReceiver,
-                mock(SharedShardContexts.class));
+            collectPhase,
+            collectOperationMock,
+            "localNodeId",
+            ramAccountingContext,
+            rowReceiver,
+            rowReceiver,
+            mock(SharedShardContexts.class));
 
         jobCtx.addSearchContext(1, mock1);
         CrateCollector collectorMock1 = mock(CrateCollector.class);

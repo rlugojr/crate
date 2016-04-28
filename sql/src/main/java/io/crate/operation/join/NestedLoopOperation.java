@@ -199,6 +199,11 @@ public class NestedLoopOperation implements RowUpstream {
                 otherUpstream.resume(false);
             }
         }
+
+        @Override
+        public boolean isSynchronous() {
+            return true;
+        }
     }
 
     private void killBoth(Throwable throwable) {

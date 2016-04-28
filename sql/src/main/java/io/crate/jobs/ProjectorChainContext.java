@@ -21,9 +21,9 @@
 
 package io.crate.jobs;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import io.crate.breaker.RamAccountingContext;
+import io.crate.operation.OperationListener;
+import io.crate.operation.OperationObserver;
 import io.crate.operation.projectors.*;
 import io.crate.planner.projection.Projection;
 import org.elasticsearch.common.logging.ESLogger;
@@ -48,9 +48,11 @@ public class ProjectorChainContext extends AbstractExecutionSubContext {
                                  ProjectorFactory projectorFactory,
                                  List<Projection> projections,
                                  RowReceiver rowReceiver,
+                                 OperationObserver operationObserver,
                                  RamAccountingContext ramAccountingContext) {
         super(id, LOGGER);
         this.name = name;
+        /*
         ListenableRowReceiver listenableRowReceiver = RowReceivers.listenableRowReceiver(rowReceiver);
         Futures.addCallback(listenableRowReceiver.finishFuture(), new FutureCallback<Void>() {
             @Override
@@ -63,11 +65,20 @@ public class ProjectorChainContext extends AbstractExecutionSubContext {
                 ProjectorChainContext.this.close(t);
             }
         });
+        */
+        operationObserver.addListener(new OperationListener() {
+            @Override
+            public void onDone(@Nullable Throwable t) {
+                close(t);
+                done(t);
+            }
+        });
+
         projectorChain = FlatProjectorChain.withAttachedDownstream(
                 projectorFactory,
                 ramAccountingContext,
                 projections,
-                listenableRowReceiver,
+                rowReceiver,
                 jobId
         );
         this.rowReceiver = projectorChain.firstProjector();

@@ -22,6 +22,7 @@
 package io.crate.jobs;
 
 import io.crate.executor.transport.ShardRequest;
+import io.crate.operation.OperationListener;
 import org.elasticsearch.action.bulk.BulkShardProcessor;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -34,10 +35,18 @@ public class BulkShardProcessorContext extends AbstractExecutionSubContext {
     private static final ESLogger LOGGER = Loggers.getLogger(BulkShardProcessorContext.class);
 
     private final BulkShardProcessor<? extends ShardRequest> bulkShardProcessor;
+    private volatile boolean killCalled = false;
 
     public BulkShardProcessorContext(int id, BulkShardProcessor<? extends ShardRequest> bulkShardProcessor) {
         super(id, LOGGER);
         this.bulkShardProcessor = bulkShardProcessor;
+        bulkShardProcessor.addListener(new OperationListener() {
+            @Override
+            public void onDone(@Nullable Throwable t) {
+                close(t);
+                done(t);
+            }
+        });
     }
 
     @Override
@@ -47,12 +56,13 @@ public class BulkShardProcessorContext extends AbstractExecutionSubContext {
 
     @Override
     protected void innerKill(@Nonnull Throwable t) {
+        killCalled = true;
         bulkShardProcessor.kill(t);
     }
 
     @Override
     protected void innerClose(@Nullable Throwable t) {
-        if (t != null) {
+        if (!killCalled) {
             bulkShardProcessor.kill(t);
         }
     }

@@ -84,6 +84,7 @@ public class ESJobContext extends AbstractExecutionSubContext {
         for (Future<?> resultFuture : resultFutures) {
             resultFuture.cancel(true);
         }
+        done(t);
     }
 
     @Override
@@ -95,6 +96,7 @@ public class ESJobContext extends AbstractExecutionSubContext {
                 }
             }
         }
+        done(t);
     }
 
     public String name() {
