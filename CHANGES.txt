@@ -5,6 +5,9 @@ Changes for Crate
 Unreleased
 ==========
 
+ - File system stats were reported incorrectly in a magnitude of 1024
+   because the unit of the sigar probe values was assumed incorrectly.
+
  - Load ``crate.yml`` explicitly and do not allow any other extension than
    ``yml`` for the configuration file.
 
