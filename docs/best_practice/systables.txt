@@ -181,18 +181,25 @@ otherwise Crate is occupied with some background activity. The cluster
 state indicators on the admin UI evaluate these values as well.
 
 The **sys.shards** table contains even more information about the
-rebalancing activities. Whenever Crate needs to copy one shard to
-another node -- since that may be necessary to ensure there are enough
-replica of it distributed in the cluster -- you can estimate the
-finishing of that operation with the **recovery** object::
+rebalancing activities. Sometimes Crate needs to transfer one shard to
+another node, since that may be necessary to ensure there are enough
+replica of it distributed in the cluster. You can estimate the
+finishing of that operation with the **recovery** object. To monitor the progress of the shard transfer, run this query:
 
-    cr> SELECT DISTINCT partition_ident, recovery['size']['percent'], recovery['total_time'] FROM sys.shards WHERE primary;
-    +--------------------+-----------------------------+------------------------+
-    | partition_ident    | recovery['size']['percent'] | recovery['total_time'] |
-    +--------------------+-----------------------------+------------------------+
-    ...
-    +--------------------+-----------------------------+------------------------+
+    cr> select _node['hostname'], id, recovery['stage'], recovery['size']['percent'], routing_state, state from sys.shards
+    ... where routing_state in ('RELOCATING','INITIALIZING') order by id;
+    +-------------------+----+-------------------+-----------------------------+---------------+-------+
+    | _node['hostname'] | id | recovery['stage'] | recovery['size']['percent'] | routing_state | state |
+    +-------------------+----+-------------------+-----------------------------+---------------+-------+
+    +-------------------+----+-------------------+-----------------------------+---------------+-------+
     SELECT ... in set (... sec)
+
+It lists pairs of rows, in which the first row denotes the destination shard and the second row the source shard.
+Each row contains the shard's hostname, id and the recovery percentage of the tranferred shard.
+When the shard starts relocating, a new shard entry appears in the **sys.shards** table with a 
+**routing_state** of `INITIALIZING`. The **state** of this row is `RECOVERING`. Meanwhile the value of
+**routing_state** of the source row switches from `STARTED` to `RELOCATING` until the transfer is done. 
+After that, the source row is deleted from **sys.shards** automatically.
 
 To find out on which specific node a shard is stored, also use the
 object in the **_node** system column that is available for this
