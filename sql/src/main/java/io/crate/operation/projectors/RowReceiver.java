@@ -23,7 +23,9 @@
 package io.crate.operation.projectors;
 
 import io.crate.core.collections.Row;
+import io.crate.operation.data.BatchConsumer;
 
+import javax.annotation.Nullable;
 import java.util.Set;
 
 public interface RowReceiver {
@@ -88,4 +90,9 @@ public interface RowReceiver {
      * This can be used to switch to optimized implementations if something isn't/is requirement
      */
     Set<Requirement> requirements();
+
+    @Nullable
+    default BatchConsumer asConsumer() {
+        return null;
+    }
 }

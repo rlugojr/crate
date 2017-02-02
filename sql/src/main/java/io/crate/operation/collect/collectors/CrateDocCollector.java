@@ -30,6 +30,8 @@ import io.crate.operation.InputRow;
 import io.crate.operation.collect.CollectionFinishedEarlyException;
 import io.crate.operation.collect.CollectionPauseException;
 import io.crate.operation.collect.CrateCollector;
+import io.crate.operation.collect.cursors.BatchDocCollector;
+import io.crate.operation.data.BatchConsumer;
 import io.crate.operation.projectors.ExecutorResumeHandle;
 import io.crate.operation.projectors.RepeatHandle;
 import io.crate.operation.projectors.RowReceiver;
@@ -103,7 +105,23 @@ public class CrateDocCollector implements CrateCollector, RepeatHandle {
 
         @Override
         public CrateCollector build(RowReceiver rowReceiver) {
-            return new CrateDocCollector(
+            BatchConsumer batchConsumer = rowReceiver.asConsumer();
+            if (batchConsumer == null) {
+                return new CrateDocCollector(
+                    shardId,
+                    indexSearcher,
+                    query,
+                    minScore,
+                    executor,
+                    doScores,
+                    collectorContext,
+                    ramAccountingContext,
+                    rowReceiver,
+                    inputs,
+                    expressions
+                );
+            }
+            return new BatchDocCollector(
                 shardId,
                 indexSearcher,
                 query,
@@ -112,7 +130,7 @@ public class CrateDocCollector implements CrateCollector, RepeatHandle {
                 doScores,
                 collectorContext,
                 ramAccountingContext,
-                rowReceiver,
+                batchConsumer,
                 inputs,
                 expressions
             );
