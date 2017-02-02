@@ -38,10 +38,30 @@ public interface AltBatchCursor {
         State state();
         CompletableFuture<?> loadNext();
         Row getRow();
-        void close();
     }
+
+    Action NO_MORE_DATA = new Action() {
+        @Override
+        public State state() {
+            return State.NO_MORE_DATA;
+        }
+
+        @Override
+        public CompletableFuture<?> loadNext() {
+            CompletableFuture<Object> f = new CompletableFuture<>();
+            f.completeExceptionally(new IllegalStateException(".."));
+            return f;
+        }
+
+        @Override
+        public Row getRow() {
+            throw new IllegalStateException("");
+        }
+    };
 
     Action nextAction();
 
     void moveFirst();
+
+    void close();
 }

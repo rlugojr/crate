@@ -57,7 +57,7 @@ public class AltCursorToRowReceiver {
 
                 case STOP:
                     rowReceiver.finish(RepeatHandle.UNSUPPORTED);
-                    action.close();
+                    cursor.close();
                     return;
             }
         }
@@ -68,14 +68,14 @@ public class AltCursorToRowReceiver {
                     .thenAccept(ignored -> consumeCursor(cursor))
                     .exceptionally(ex -> {
                         rowReceiver.fail(ex);
-                        action.close();
+                        cursor.close();
                         return null;
                     });
                 break;
 
             case NO_MORE_DATA:
                 rowReceiver.finish(RepeatHandle.UNSUPPORTED);
-                action.close();
+                cursor.close();
                 break;
         }
     }
