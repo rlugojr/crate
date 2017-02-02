@@ -34,13 +34,14 @@ public interface AltBatchCursor {
         NO_MORE_DATA
     }
 
-    State state();
+    interface Action {
+        State state();
+        CompletableFuture<?> loadNext();
+        Row getRow();
+        void close();
+    }
 
-    Row next();
-
-    void close();
-
-    CompletableFuture<?> loadNext();
+    Action nextAction();
 
     void moveFirst();
 }

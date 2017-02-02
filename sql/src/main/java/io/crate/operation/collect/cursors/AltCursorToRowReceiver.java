@@ -43,8 +43,9 @@ public class AltCursorToRowReceiver {
     }
 
     private void consumeCursor(AltBatchCursor cursor) {
-        while (cursor.state() == AltBatchCursor.State.ON_ROW) {
-            Row row = cursor.next();
+        AltBatchCursor.Action action;
+        while ((action = cursor.nextAction()).state() == AltBatchCursor.State.ON_ROW) {
+            Row row = action.getRow();
             RowReceiver.Result result = rowReceiver.setNextRow(row);
             switch (result) {
                 case CONTINUE:
@@ -56,19 +57,25 @@ public class AltCursorToRowReceiver {
 
                 case STOP:
                     rowReceiver.finish(RepeatHandle.UNSUPPORTED);
-                    cursor.close();
+                    action.close();
                     return;
             }
         }
 
-        switch (cursor.state()) {
+        switch (action.state()) {
             case NEED_FETCH:
-                cursor.loadNext();
+                action.loadNext()
+                    .thenAccept(ignored -> consumeCursor(cursor))
+                    .exceptionally(ex -> {
+                        rowReceiver.fail(ex);
+                        action.close();
+                        return null;
+                    });
                 break;
 
             case NO_MORE_DATA:
                 rowReceiver.finish(RepeatHandle.UNSUPPORTED);
-                cursor.close();
+                action.close();
                 break;
         }
     }
