@@ -43,7 +43,7 @@ public class IterableBatchCursor implements BatchCursor {
     }
 
     @Override
-    public int size() {
+    public int numColumns() {
         return numCols;
     }
 

@@ -45,42 +45,44 @@ public class CursorToReceiver implements BatchConsumer {
     }
 
     private void consumeCursor(BatchCursor cursor) {
-        switch (cursor.status()) {
-            case ON_ROW:
-                do {
-                    RowReceiver.Result result = rowReceiver.setNextRow(cursor);
-                    switch (result) {
-                        case CONTINUE:
-                            break;
-                        case PAUSE:
-                            rowReceiver.pauseProcessed(async -> consumeCursor(cursor));
-                            return;
-                        case STOP:
-                            rowReceiver.finish(RepeatHandle.UNSUPPORTED);
-                            cursor.close();
-                            return;
-                    }
-                } while (cursor.moveNext());
-
-                break;
-            case OFF_ROW:
-                if (cursor.allLoaded()) {
-                    rowReceiver.finish(RepeatHandle.UNSUPPORTED);
-                    cursor.close();
-                    return;
-                }
-                cursor.loadNextBatch()
-                    .thenAccept(i -> consumeCursor(cursor))
-                    .exceptionally(e -> {
-                        rowReceiver.fail(e);
+        while (true) {
+            switch (cursor.status()) {
+                case ON_ROW:
+                    do {
+                        RowReceiver.Result result = rowReceiver.setNextRow(cursor);
+                        switch (result) {
+                            case CONTINUE:
+                                break;
+                            case PAUSE:
+                                rowReceiver.pauseProcessed(async -> consumeCursor(cursor));
+                                return;
+                            case STOP:
+                                rowReceiver.finish(RepeatHandle.UNSUPPORTED);
+                                cursor.close();
+                                return;
+                        }
+                    } while (cursor.moveNext());
+                    break;
+                case OFF_ROW:
+                    if (cursor.allLoaded()) {
+                        rowReceiver.finish(RepeatHandle.UNSUPPORTED);
                         cursor.close();
-                        return null;
-                    });
-                break;
-            case LOADING:
-                break;
-            case CLOSED:
-                break;
+                        return;
+                    }
+                    cursor.loadNextBatch()
+                        .thenAccept(i -> consumeCursor(cursor))
+                        .exceptionally(e -> {
+                            rowReceiver.fail(e);
+                            cursor.close();
+                            return null;
+                        });
+                    return;
+
+                case LOADING:
+                    return;
+                case CLOSED:
+                    return;
+            }
         }
     }
 }

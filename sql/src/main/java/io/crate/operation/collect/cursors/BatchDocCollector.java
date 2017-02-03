@@ -120,7 +120,7 @@ public class BatchDocCollector implements CrateCollector {
         }
 
         @Override
-        public int size() {
+        public int numColumns() {
             return 0;
         }
 
