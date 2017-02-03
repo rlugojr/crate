@@ -22,11 +22,15 @@
 
 package io.crate.data.consumer;
 
-import io.crate.data.Buckets;
-import io.crate.data.Row1;
-import io.crate.data.StaticDataSource;
+import com.google.common.collect.Iterators;
+import io.crate.data.*;
+import io.crate.data.transform.TopNOrderBySource;
+import io.crate.data.transform.TransformingDataSource;
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -41,5 +45,46 @@ public class CollectingConsumerTest {
         CollectingConsumer consumer = new CollectingConsumer(source);
         List<Object[]> objects = consumer.collect().get(10, TimeUnit.SECONDS);
         assertThat(objects.size(), is(1));
+    }
+
+    @Test
+    public void testLimit() throws Exception {
+        DataSource source = new StaticDataSource(new CollectionBucket(Arrays.asList(
+            new Object[] { 1 },
+            new Object[] { 2 },
+            new Object[] { 3 },
+            new Object[] { 4 },
+            new Object[] { 5 }
+        )));
+        // TODO: this only works if the consumer doesn't call loadNext too often
+        source = new TransformingDataSource(source, b -> new Bucket() {
+            @Override
+            public int size() {
+                return 3;
+            }
+
+            @Override
+            public Iterator<Row> iterator() {
+                return Iterators.limit(b.iterator(), 3);
+            }
+        });
+        CollectingConsumer consumer = new CollectingConsumer(source);
+        List<Object[]> objects = consumer.collect().get(10, TimeUnit.SECONDS);
+        assertThat(objects.size(), is(3));
+    }
+
+    @Test
+    public void testOrderByLimit() throws Exception {
+        DataSource source = new StaticDataSource(new CollectionBucket(Arrays.asList(
+            new Object[] { 2 },
+            new Object[] { 5 },
+            new Object[] { 4 },
+            new Object[] { 1 },
+            new Object[] { 3 }
+        )));
+        source = new TopNOrderBySource(source, 3, Comparator.comparingInt(o -> (int) o[0]));
+        CollectingConsumer consumer = new CollectingConsumer(source);
+        List<Object[]> objects = consumer.collect().get(10, TimeUnit.SECONDS);
+        assertThat(objects.size(), is(3));
     }
 }

@@ -26,6 +26,25 @@ import java.util.concurrent.CompletableFuture;
 
 public interface Page {
 
+    Page LAST_EMPTY = new Page() {
+        @Override
+        public CompletableFuture<Page> loadNext() {
+            CompletableFuture<Page> f = new CompletableFuture<>();
+            f.completeExceptionally(new IllegalStateException("Must not call loadNext on last page"));
+            return f;
+        }
+
+        @Override
+        public Bucket bucket() {
+            return Bucket.EMPTY;
+        }
+
+        @Override
+        public boolean isLast() {
+            return true;
+        }
+    };
+
     CompletableFuture<Page> loadNext();
 
     Bucket bucket();
