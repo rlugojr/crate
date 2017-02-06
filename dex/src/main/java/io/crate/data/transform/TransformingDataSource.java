@@ -22,9 +22,9 @@
 
 package io.crate.data.transform;
 
-import io.crate.data.Bucket;
 import io.crate.data.DataSource;
 import io.crate.data.Page;
+import io.crate.data.Row;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -32,9 +32,9 @@ import java.util.function.Function;
 public class TransformingDataSource implements DataSource {
 
     private final DataSource source;
-    private final Function<Bucket, Bucket> bucketTransformation;
+    private final Function<Iterable<Row>, Iterable<Row>> bucketTransformation;
 
-    public TransformingDataSource(DataSource source, Function<Bucket, Bucket> bucketTransformation) {
+    public TransformingDataSource(DataSource source, Function<Iterable<Row>, Iterable<Row>> bucketTransformation) {
         this.source = source;
         this.bucketTransformation = bucketTransformation;
     }
@@ -52,9 +52,9 @@ public class TransformingDataSource implements DataSource {
     private static class TransformingPage implements Page {
 
         private final Page page;
-        private final Function<Bucket, Bucket> bucketTransformation;
+        private final Function<Iterable<Row>, Iterable<Row>> bucketTransformation;
 
-        TransformingPage(Page page, Function<Bucket, Bucket> bucketTransformation) {
+        TransformingPage(Page page, Function<Iterable<Row>, Iterable<Row>> bucketTransformation) {
             this.page = page;
             this.bucketTransformation = bucketTransformation;
         }
@@ -65,8 +65,8 @@ public class TransformingDataSource implements DataSource {
         }
 
         @Override
-        public Bucket bucket() {
-            return bucketTransformation.apply(page.bucket());
+        public Iterable<Row> data() {
+            return bucketTransformation.apply(page.data());
         }
 
         @Override

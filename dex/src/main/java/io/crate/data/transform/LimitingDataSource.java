@@ -22,13 +22,11 @@
 
 package io.crate.data.transform;
 
-import com.google.common.collect.Iterators;
-import io.crate.data.Bucket;
+import com.google.common.collect.Iterables;
 import io.crate.data.DataSource;
 import io.crate.data.Page;
 import io.crate.data.Row;
 
-import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 
 public class LimitingDataSource implements DataSource {
@@ -56,6 +54,7 @@ public class LimitingDataSource implements DataSource {
     }
 
     private class LimitedPage implements Page {
+
         private final Page page;
         private final int limit;
 
@@ -71,33 +70,13 @@ public class LimitingDataSource implements DataSource {
         }
 
         @Override
-        public Bucket bucket() {
-            return new LimitedBucket(page.bucket(), limit);
+        public Iterable<Row> data() {
+            return Iterables.limit(page.data(), limit);
         }
 
         @Override
         public boolean isLast() {
             return page.isLast();
-        }
-    }
-
-    private class LimitedBucket implements Bucket {
-        private final Bucket bucket;
-        private final int limit;
-
-        LimitedBucket(Bucket bucket, int limit) {
-            this.bucket = bucket;
-            this.limit = limit;
-        }
-
-        @Override
-        public int size() {
-            return limit;
-        }
-
-        @Override
-        public Iterator<Row> iterator() {
-            return Iterators.limit(bucket.iterator(), limit);
         }
     }
 }

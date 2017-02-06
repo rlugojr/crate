@@ -28,16 +28,66 @@ import io.crate.data.transform.TopNOrderBySource;
 import io.crate.data.transform.TransformingDataSource;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
 
 public class CollectingConsumerTest {
+
+    private static class UnlimitedPage implements Page {
+
+        private final int start;
+        private final int size;
+        private final ArrayList<Row> items;
+
+        UnlimitedPage(int start, int size) {
+            this.start = start;
+            this.size = size;
+            this.items = new ArrayList<>(size);
+            for (int i = start; i < start + size; i++) {
+                items.add(new Row1(i));
+            }
+        }
+
+        @Override
+        public CompletableFuture<Page> loadNext() {
+            return CompletableFuture.completedFuture(new UnlimitedPage(start + size, size));
+        }
+
+        @Override
+        public Iterable<Row> data() {
+            return items;
+        }
+
+        @Override
+        public boolean isLast() {
+            return false;
+        }
+    }
+
+    private static class UnlimitedDataSource implements DataSource {
+
+        private final CompletableFuture<Page> firstPage;
+
+        UnlimitedDataSource() {
+            firstPage = CompletableFuture.completedFuture(new UnlimitedPage(0, 3));
+        }
+
+        @Override
+        public CompletableFuture<Page> loadFirst() {
+            return firstPage;
+        }
+
+        @Override
+        public void close() {
+        }
+    }
 
     @Test
     public void testCollectingConsumer() throws Exception {
@@ -49,25 +99,9 @@ public class CollectingConsumerTest {
 
     @Test
     public void testLimit() throws Exception {
-        DataSource source = new StaticDataSource(new CollectionBucket(Arrays.asList(
-            new Object[] { 1 },
-            new Object[] { 2 },
-            new Object[] { 3 },
-            new Object[] { 4 },
-            new Object[] { 5 }
-        )));
-        // TODO: this only works if the consumer doesn't call loadNext too often
-        source = new TransformingDataSource(source, b -> new Bucket() {
-            @Override
-            public int size() {
-                return 3;
-            }
-
-            @Override
-            public Iterator<Row> iterator() {
-                return Iterators.limit(b.iterator(), 3);
-            }
-        });
+        DataSource source = new UnlimitedDataSource();
+        // TODO: need to push the limit somehow into the source
+        source = new TransformingDataSource(source, b -> () -> Iterators.limit(b.iterator(), 3));
         CollectingConsumer consumer = new CollectingConsumer(source);
         List<Object[]> objects = consumer.collect().get(10, TimeUnit.SECONDS);
         assertThat(objects.size(), is(3));

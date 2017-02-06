@@ -26,6 +26,9 @@ import java.util.concurrent.CompletableFuture;
 
 public interface DataSource {
 
+    // CompletableFuture<Page> loadFirst(Function<Iterable<Row>, Iterable<Row>> ... transformations);
+    // CompletableFuture<Page> loadFirst(int offset, int limit, Predicate<Row> filter);
+
     CompletableFuture<Page> loadFirst();
 
     void close();

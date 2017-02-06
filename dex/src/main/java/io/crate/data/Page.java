@@ -22,6 +22,7 @@
 
 package io.crate.data;
 
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
 public interface Page {
@@ -35,8 +36,8 @@ public interface Page {
         }
 
         @Override
-        public Bucket bucket() {
-            return Bucket.EMPTY;
+        public Iterable<Row> data() {
+            return Collections.emptyList();
         }
 
         @Override
@@ -47,7 +48,7 @@ public interface Page {
 
     CompletableFuture<Page> loadNext();
 
-    Bucket bucket();
+    Iterable<Row> data();
 
     boolean isLast();
 }

@@ -22,7 +22,10 @@
 
 package io.crate.data.transform;
 
-import io.crate.data.*;
+import io.crate.data.CollectionBucket;
+import io.crate.data.DataSource;
+import io.crate.data.Page;
+import io.crate.data.Row;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -59,7 +62,7 @@ public class TopNOrderBySource implements DataSource {
     }
 
     private void consumePage(Page page) {
-        for (Row row : page.bucket()) {
+        for (Row row : page.data()) {
             q.offer(row.materialize());
         }
         if (page.isLast()) {
@@ -77,7 +80,7 @@ public class TopNOrderBySource implements DataSource {
             }
 
             @Override
-            public Bucket bucket() {
+            public Iterable<Row> data() {
                 List<Object[]> result = new ArrayList<>(limit);
                 for (int i = 0; i < limit; i++) {
                     result.add(q.poll());

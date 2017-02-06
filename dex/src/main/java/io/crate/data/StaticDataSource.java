@@ -28,7 +28,7 @@ public class StaticDataSource implements DataSource {
 
     private final CompletableFuture<Page> first;
 
-    public StaticDataSource(Bucket bucket) {
+    public StaticDataSource(Iterable<Row> rows) {
         first = CompletableFuture.completedFuture(new Page() {
             @Override
             public CompletableFuture<Page> loadNext() {
@@ -38,8 +38,8 @@ public class StaticDataSource implements DataSource {
             }
 
             @Override
-            public Bucket bucket() {
-                return bucket;
+            public Iterable<Row> data() {
+                return rows;
             }
 
             @Override

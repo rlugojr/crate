@@ -55,7 +55,7 @@ public class CollectingConsumer {
     }
 
     private void consumePage(Page page) {
-        for (Row row : page.bucket()) {
+        for (Row row : page.data()) {
             rows.add(row.materialize());
         }
         if (page.isLast()) {
