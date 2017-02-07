@@ -23,13 +23,61 @@
 package io.crate.data;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 public interface DataSource {
 
     // CompletableFuture<Page> loadFirst(Function<Iterable<Row>, Iterable<Row>> ... transformations);
     // CompletableFuture<Page> loadFirst(int offset, int limit, Predicate<Row> filter);
 
+    /**
+     * PageBuilder prepareLoad()
+     *      .limit(10)
+     *      .load()
+     */
+
+
     CompletableFuture<Page> loadFirst();
 
     void close();
+
+
+    /**
+     * Usage:
+     *
+     *  sourceBuilder = createSourceBuilder()  (will create e.g. a Lucene SourceBuilder)
+     *
+     *  for projection in projections:
+     *                      // use skip/limit/filter/addTransformation
+     *      sourceBuilder = applyProjection(projection, sourceBuilder)
+     *
+     *  source = sourceBuilder.build()
+     *  for sourceTransformation in sourceTransformation:
+     *      // projections like group by which consume the whole source to create
+     *      // a new source become sourceTransformations
+     *      source = sourceTransformation.transform(source)
+     *
+     *  // consumer: consumes all pages, result is void.
+     *  // (Behaves like a DistributingDownstream, or postgres ResultSetReceiver)
+     *
+     *  consumer.consume(source)
+     */
+
+    interface Transformer {
+        DataSource transform(DataSource source);
+    }
+
+    interface SourceBuilder {
+        SourceBuilder skip(int offset);
+        SourceBuilder limit(int limit);
+        SourceBuilder filter(Predicate<Row> filter);
+        SourceBuilder addTransformation(Function<Iterable<Row>, Iterable<Row>> transformation);
+
+        DataSource build();
+    }
+
+    interface Consumer {
+        void consume(DataSource source);
+    }
 }

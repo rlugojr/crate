@@ -34,6 +34,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
@@ -71,6 +73,39 @@ public class CollectingConsumerTest {
         }
     }
 
+    private static class UnlimitedSourceBuilder implements DataSource.SourceBuilder {
+
+        int offset = 0;
+        int limit = 0;
+
+        @Override
+        public DataSource.SourceBuilder skip(int offset) {
+            this.offset = offset;
+            return this;
+        }
+
+        @Override
+        public DataSource.SourceBuilder limit(int limit) {
+            this.limit = limit;
+            return this;
+        }
+
+        @Override
+        public DataSource.SourceBuilder filter(Predicate<Row> filter) {
+            return this;
+        }
+
+        @Override
+        public DataSource.SourceBuilder addTransformation(Function<Iterable<Row>, Iterable<Row>> transformation) {
+            return this;
+        }
+
+        @Override
+        public DataSource build() {
+            return new UnlimitedDataSource();
+        }
+    }
+
     private static class UnlimitedDataSource implements DataSource {
 
         private final CompletableFuture<Page> firstPage;
@@ -101,6 +136,7 @@ public class CollectingConsumerTest {
     public void testLimit() throws Exception {
         DataSource source = new UnlimitedDataSource();
         // TODO: need to push the limit somehow into the source
+
         source = new TransformingDataSource(source, b -> () -> Iterators.limit(b.iterator(), 3));
         CollectingConsumer consumer = new CollectingConsumer(source);
         List<Object[]> objects = consumer.collect().get(10, TimeUnit.SECONDS);
