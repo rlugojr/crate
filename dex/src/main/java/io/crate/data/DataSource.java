@@ -68,11 +68,11 @@ public interface DataSource {
         DataSource transform(DataSource source);
     }
 
-    interface SourceBuilder {
-        SourceBuilder skip(int offset);
-        SourceBuilder limit(int limit);
-        SourceBuilder filter(Predicate<Row> filter);
-        SourceBuilder addTransformation(Function<Iterable<Row>, Iterable<Row>> transformation);
+    interface Builder {
+        Builder skip(int offset);
+        Builder limit(int limit);
+        Builder filter(Predicate<Row> filter);
+        Builder addTransformation(Function<Iterable<Row>, Iterable<Row>> transformation);
 
         DataSource build();
     }

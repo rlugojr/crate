@@ -22,13 +22,55 @@
 
 package io.crate.data;
 
+import com.google.common.collect.Iterables;
+
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 public class StaticDataSource implements DataSource {
 
+    public static StaticDataSource.Builder builder(Iterable<Row> rows) {
+        return new Builder(rows);
+    }
+
+    public static class Builder implements DataSource.Builder {
+
+        private final Iterable<Row> rows;
+
+        private Builder(Iterable<Row> rows) {
+            this.rows = rows;
+        }
+
+        @Override
+        public DataSource.Builder skip(int offset) {
+            return new Builder(Iterables.skip(rows, offset));
+        }
+
+        @Override
+        public DataSource.Builder limit(int limit) {
+            return new Builder(Iterables.limit(rows, limit));
+        }
+
+        @Override
+        public DataSource.Builder filter(Predicate<Row> filter) {
+            return new Builder(Iterables.filter(rows, filter::test));
+        }
+
+        @Override
+        public DataSource.Builder addTransformation(Function<Iterable<Row>, Iterable<Row>> transformation) {
+            return new Builder(transformation.apply(rows));
+        }
+
+        @Override
+        public DataSource build() {
+            return new StaticDataSource(rows);
+        }
+    }
+
     private final CompletableFuture<Page> first;
 
-    public StaticDataSource(Iterable<Row> rows) {
+    private StaticDataSource(Iterable<Row> rows) {
         first = CompletableFuture.completedFuture(new Page() {
             @Override
             public CompletableFuture<Page> loadNext() {

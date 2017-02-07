@@ -22,111 +22,28 @@
 
 package io.crate.data.consumer;
 
-import com.google.common.collect.Iterators;
-import io.crate.data.*;
+import io.crate.data.CollectionBucket;
+import io.crate.data.DataSource;
+import io.crate.data.Row1;
+import io.crate.data.StaticDataSource;
 import io.crate.data.transform.TopNOrderBySource;
-import io.crate.data.transform.TransformingDataSource;
 import org.junit.Test;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
 
 public class CollectingConsumerTest {
 
-    private static class UnlimitedPage implements Page {
-
-        private final int start;
-        private final int size;
-        private final ArrayList<Row> items;
-
-        UnlimitedPage(int start, int size) {
-            this.start = start;
-            this.size = size;
-            this.items = new ArrayList<>(size);
-            for (int i = start; i < start + size; i++) {
-                items.add(new Row1(i));
-            }
-        }
-
-        @Override
-        public CompletableFuture<Page> loadNext() {
-            return CompletableFuture.completedFuture(new UnlimitedPage(start + size, size));
-        }
-
-        @Override
-        public Iterable<Row> data() {
-            return items;
-        }
-
-        @Override
-        public boolean isLast() {
-            return false;
-        }
-    }
-
-    private static class UnlimitedSourceBuilder implements DataSource.SourceBuilder {
-
-        int offset = 0;
-        int limit = 0;
-
-        @Override
-        public DataSource.SourceBuilder skip(int offset) {
-            this.offset = offset;
-            return this;
-        }
-
-        @Override
-        public DataSource.SourceBuilder limit(int limit) {
-            this.limit = limit;
-            return this;
-        }
-
-        @Override
-        public DataSource.SourceBuilder filter(Predicate<Row> filter) {
-            return this;
-        }
-
-        @Override
-        public DataSource.SourceBuilder addTransformation(Function<Iterable<Row>, Iterable<Row>> transformation) {
-            return this;
-        }
-
-        @Override
-        public DataSource build() {
-            return new UnlimitedDataSource();
-        }
-    }
-
-    private static class UnlimitedDataSource implements DataSource {
-
-        private final CompletableFuture<Page> firstPage;
-
-        UnlimitedDataSource() {
-            firstPage = CompletableFuture.completedFuture(new UnlimitedPage(0, 3));
-        }
-
-        @Override
-        public CompletableFuture<Page> loadFirst() {
-            return firstPage;
-        }
-
-        @Override
-        public void close() {
-        }
-    }
 
     @Test
     public void testCollectingConsumer() throws Exception {
-        StaticDataSource source = new StaticDataSource(Buckets.of(new Row1(10)));
+        DataSource source = StaticDataSource.builder(Collections.singletonList(new Row1(10))).build();
         CollectingConsumer consumer = new CollectingConsumer(source);
         List<Object[]> objects = consumer.collect().get(10, TimeUnit.SECONDS);
         assertThat(objects.size(), is(1));
@@ -134,10 +51,16 @@ public class CollectingConsumerTest {
 
     @Test
     public void testLimit() throws Exception {
-        DataSource source = new UnlimitedDataSource();
-        // TODO: need to push the limit somehow into the source
+        CollectionBucket rows = new CollectionBucket(Arrays.asList(
+            new Object[]{2},
+            new Object[]{5},
+            new Object[]{4},
+            new Object[]{1},
+            new Object[]{3}));
+        DataSource source = StaticDataSource.builder(rows)
+            .limit(3)
+            .build();
 
-        source = new TransformingDataSource(source, b -> () -> Iterators.limit(b.iterator(), 3));
         CollectingConsumer consumer = new CollectingConsumer(source);
         List<Object[]> objects = consumer.collect().get(10, TimeUnit.SECONDS);
         assertThat(objects.size(), is(3));
@@ -145,13 +68,13 @@ public class CollectingConsumerTest {
 
     @Test
     public void testOrderByLimit() throws Exception {
-        DataSource source = new StaticDataSource(new CollectionBucket(Arrays.asList(
+        DataSource source = StaticDataSource.builder(new CollectionBucket(Arrays.asList(
             new Object[] { 2 },
             new Object[] { 5 },
             new Object[] { 4 },
             new Object[] { 1 },
             new Object[] { 3 }
-        )));
+        ))).build();
         source = new TopNOrderBySource(source, 3, Comparator.comparingInt(o -> (int) o[0]));
         CollectingConsumer consumer = new CollectingConsumer(source);
         List<Object[]> objects = consumer.collect().get(10, TimeUnit.SECONDS);
