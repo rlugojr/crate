@@ -22,42 +22,13 @@
 
 package io.crate.data;
 
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 
-public interface Page {
+public class MoreFutures {
 
-    Page LAST_EMPTY = new Page() {
-        @Override
-        public CompletableFuture<Page> getNext() {
-            CompletableFuture<Page> f = new CompletableFuture<>();
-            f.completeExceptionally(new IllegalStateException("Must not call loadNext on last page"));
-            return f;
-        }
-
-        @Override
-        public Iterator<Row> data() {
-            return Collections.emptyIterator();
-        }
-
-        @Override
-        public boolean isLast() {
-            return true;
-        }
-    };
-
-    CompletableFuture<Page> PENDING_FUTURE_ILLEGAL_STATE = MoreFutures.failedFuture(
-        new IllegalStateException("Must not call getNext while a page is being loaded"));
-
-
-    // alternative: remove this and replace with loadNext() in DataSource
-    CompletableFuture<Page> getNext();
-
-    // alternatives:
-    // - Stream<Row> data();
-    // - Spliterator<Row> data();
-    Iterator<Row> data();
-
-    boolean isLast();
+    public static <T> CompletableFuture<T> failedFuture(Throwable t) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        future.completeExceptionally(t);
+        return future;
+    }
 }

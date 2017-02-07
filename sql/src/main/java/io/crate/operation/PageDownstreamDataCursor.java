@@ -22,106 +22,110 @@
 
 package io.crate.operation;
 
+import com.carrotsearch.hppc.IntObjectHashMap;
+import com.carrotsearch.hppc.cursors.IntObjectCursor;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import io.crate.core.MultiFutureCallback;
-import io.crate.data.*;
+import io.crate.Streamer;
+import io.crate.data.Bucket;
+import io.crate.data.DataCursor;
+import io.crate.data.Page;
+import io.crate.data.Row;
+import io.crate.jobs.PageBucketReceiver;
 import io.crate.operation.merge.KeyIterable;
 import io.crate.operation.merge.PagingIterator;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-public class PageDownstreamDataCursor implements PageDownstream, DataCursor {
+public class PageDownstreamDataCursor implements PageBucketReceiver, DataCursor {
 
-    private final CompletableFuture<Page> firstPage = new CompletableFuture<>();
+    private final int numBuckets;
+    private final PagingIterator<Integer, Row> pagingIterator;
     private final Executor executor;
-    private final PagingIterator<Void, Row> pagingIterator;
+    private final IntObjectHashMap<Bucket> pendingBuckets;
 
-    private static class IteratorPage implements Page {
+    private CompletableFuture<Page> firstPage = new CompletableFuture<>();
+    private CompletableFuture<Page> nextPage = firstPage;
 
-        private final PagingIterator<Void, Row> pagingIterator;
-        private final PageConsumeListener listener;
-
-        public IteratorPage(PagingIterator<Void, Row> pagingIterator, PageConsumeListener listener) {
-            this.pagingIterator = pagingIterator;
-            this.listener = listener;
-        }
-
-        @Override
-        public CompletableFuture<Page> getNext() {
-            if (pagingIterator.hasNext()) {
-                // fail;
-            }
-            listener.needMore();
-            return null;
-        }
-
-        @Override
-        public Iterator<Row> data() {
-            return pagingIterator;
-        }
-
-        @Override
-        public boolean isLast() {
-            return false;
-        }
-    }
-
-    public PageDownstreamDataCursor(Executor executor, PagingIterator<Void, Row> pagingIterator) {
+    public PageDownstreamDataCursor(Executor executor,
+                                    int numBuckets,
+                                    PagingIterator<Integer, Row> pagingIterator) {
         this.executor = executor;
+        this.numBuckets = numBuckets;
         this.pagingIterator = pagingIterator;
+        this.pendingBuckets = new IntObjectHashMap<>(numBuckets);
     }
 
     @Override
-    public void nextPage(BucketPage page, PageConsumeListener listener) {
-        FutureCallback<List<Bucket>> finalCallback = new FutureCallback<List<Bucket>>() {
-            @Override
-            public void onSuccess(@Nullable List<Bucket> result) {
-                pagingIterator.merge(numberedBuckets(result));
-                firstPage.complete(new IteratorPage(pagingIterator, listener));
-            }
-
-            @Override
-            public void onFailure(@Nonnull Throwable t) {
-                firstPage.completeExceptionally(t);
-            }
-        };
-        Executor executor = RejectionAwareExecutor.wrapExecutor(this.executor, finalCallback);
-        MultiFutureCallback<Bucket> multiFutureCallback = new MultiFutureCallback<>(page.buckets().size(), finalCallback);
-        for (ListenableFuture<Bucket> bucketFuture : page.buckets()) {
-            Futures.addCallback(bucketFuture, multiFutureCallback, executor);
+    public CompletableFuture<Page> getNext() {
+        CompletableFuture<Page> nextPage = this.nextPage;
+        if (nextPage.isDone() == false) {
+            return Page.PENDING_FUTURE_ILLEGAL_STATE;
         }
+        this.nextPage = new CompletableFuture<>();
+        return nextPage;
+    }
+
+    @Override
+    public void close() {
+    }
+
+    @Override
+    public synchronized void setBucket(int bucketIdx, Bucket rows, boolean isLast, PageResultListener pageResultListener) {
+        if (pendingBuckets.putIfAbsent(bucketIdx, rows)) {
+            // TODO fail: bucket already set
+        }
+        if (pendingBuckets.size() == numBuckets) {
+            List<KeyIterable<Integer, Row>> pageBuckets = new ArrayList<>(numBuckets);
+            for (IntObjectCursor<Bucket> cursor : pendingBuckets) {
+                pageBuckets.add(new KeyIterable<>(cursor.key, cursor.value));
+            }
+            pagingIterator.merge(pageBuckets);
+            pendingBuckets.clear();
+
+            nextPage.complete(new PagingIteratorPage(pagingIterator));
+        }
+    }
+
+    @Override
+    public void failure(int bucketIdx, Throwable throwable) {
+
+    }
+
+    @Override
+    public void killed(int bucketIdx, Throwable throwable) {
+
+    }
+
+    @Override
+    public Streamer<?>[] streamers() {
+        return new Streamer<?>[0];
     }
 
     private static Iterable<? extends KeyIterable<Void,Row>> numberedBuckets(List<Bucket> buckets) {
         return Iterables.transform(buckets, b -> new KeyIterable<>(null, b));
     }
 
-    @Override
-    public void finish() {
-    }
+    private class PagingIteratorPage implements Page {
+        public PagingIteratorPage(PagingIterator<Integer, Row> pagingIterator) {
+        }
 
-    @Override
-    public void fail(Throwable t) {
-    }
+        @Override
+        public CompletableFuture<Page> getNext() {
+            return null;
+        }
 
-    @Override
-    public void kill(Throwable t) {
-    }
+        @Override
+        public Iterator<Row> data() {
+            return null;
+        }
 
-    @Override
-    public CompletableFuture<Page> getNext() {
-        return firstPage;
-    }
-
-    @Override
-    public void close() {
+        @Override
+        public boolean isLast() {
+            return false;
+        }
     }
 }
