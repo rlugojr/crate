@@ -23,30 +23,30 @@
 package io.crate.data.transform;
 
 import io.crate.data.CollectionBucket;
-import io.crate.data.DataSource;
+import io.crate.data.DataCursor;
 import io.crate.data.Page;
 import io.crate.data.Row;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
-public class TopNOrderBySource implements DataSource {
+public class TopNOrderByCursor implements DataCursor {
 
-    private final DataSource source;
+    private final DataCursor source;
     private final int limit;
 
     private final CompletableFuture<Page> result = new CompletableFuture<>();
     private final PriorityQueue<Object[]> q;
 
-    public TopNOrderBySource(DataSource source, int limit, Comparator<Object[]> rowComparator) {
+    public TopNOrderByCursor(DataCursor source, int limit, Comparator<Object[]> rowComparator) {
         this.source = source;
         this.limit = limit;
         this.q = new PriorityQueue<>(limit, rowComparator);
     }
 
     @Override
-    public CompletableFuture<Page> loadFirst() {
-        source.loadFirst().whenComplete(this::receivePage);
+    public CompletableFuture<Page> getNext() {
+        source.getNext().whenComplete(this::receivePage);
         return result;
     }
 
@@ -67,14 +67,14 @@ public class TopNOrderBySource implements DataSource {
         if (page.isLast()) {
             setResult();
         } else {
-            page.loadNext().whenComplete(this::receivePage);
+            page.getNext().whenComplete(this::receivePage);
         }
     }
 
     private void setResult() {
         result.complete(new Page() {
             @Override
-            public CompletableFuture<Page> loadNext() {
+            public CompletableFuture<Page> getNext() {
                 return null;
             }
 

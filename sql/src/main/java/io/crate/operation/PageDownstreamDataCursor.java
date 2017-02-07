@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-public class PageDownstreamDataSource implements PageDownstream, DataSource {
+public class PageDownstreamDataCursor implements PageDownstream, DataCursor {
 
     private final CompletableFuture<Page> firstPage = new CompletableFuture<>();
     private final Executor executor;
@@ -55,7 +55,7 @@ public class PageDownstreamDataSource implements PageDownstream, DataSource {
         }
 
         @Override
-        public CompletableFuture<Page> loadNext() {
+        public CompletableFuture<Page> getNext() {
             if (pagingIterator.hasNext()) {
                 // fail;
             }
@@ -74,7 +74,7 @@ public class PageDownstreamDataSource implements PageDownstream, DataSource {
         }
     }
 
-    public PageDownstreamDataSource(Executor executor, PagingIterator<Void, Row> pagingIterator) {
+    public PageDownstreamDataCursor(Executor executor, PagingIterator<Void, Row> pagingIterator) {
         this.executor = executor;
         this.pagingIterator = pagingIterator;
     }
@@ -117,7 +117,7 @@ public class PageDownstreamDataSource implements PageDownstream, DataSource {
     }
 
     @Override
-    public CompletableFuture<Page> loadFirst() {
+    public CompletableFuture<Page> getNext() {
         return firstPage;
     }
 

@@ -23,10 +23,10 @@
 package io.crate.data.consumer;
 
 import io.crate.data.CollectionBucket;
-import io.crate.data.DataSource;
+import io.crate.data.DataCursor;
 import io.crate.data.Row1;
-import io.crate.data.StaticDataSource;
-import io.crate.data.transform.TopNOrderBySource;
+import io.crate.data.StaticDataCursor;
+import io.crate.data.transform.TopNOrderByCursor;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -43,7 +43,7 @@ public class CollectingConsumerTest {
 
     @Test
     public void testCollectingConsumer() throws Exception {
-        DataSource source = StaticDataSource.builder(Collections.singletonList(new Row1(10))).build();
+        DataCursor source = StaticDataCursor.builder(Collections.singletonList(new Row1(10))).build();
         CollectingConsumer consumer = new CollectingConsumer(source);
         List<Object[]> objects = consumer.collect().get(10, TimeUnit.SECONDS);
         assertThat(objects.size(), is(1));
@@ -57,7 +57,7 @@ public class CollectingConsumerTest {
             new Object[]{4},
             new Object[]{1},
             new Object[]{3}));
-        DataSource source = StaticDataSource.builder(rows)
+        DataCursor source = StaticDataCursor.builder(rows)
             .limit(3)
             .build();
 
@@ -68,14 +68,14 @@ public class CollectingConsumerTest {
 
     @Test
     public void testOrderByLimit() throws Exception {
-        DataSource source = StaticDataSource.builder(new CollectionBucket(Arrays.asList(
+        DataCursor source = StaticDataCursor.builder(new CollectionBucket(Arrays.asList(
             new Object[] { 2 },
             new Object[] { 5 },
             new Object[] { 4 },
             new Object[] { 1 },
             new Object[] { 3 }
         ))).build();
-        source = new TopNOrderBySource(source, 3, Comparator.comparingInt(o -> (int) o[0]));
+        source = new TopNOrderByCursor(source, 3, Comparator.comparingInt(o -> (int) o[0]));
         CollectingConsumer consumer = new CollectingConsumer(source);
         List<Object[]> objects = consumer.collect().get(10, TimeUnit.SECONDS);
         assertThat(objects.size(), is(3));

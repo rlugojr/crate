@@ -30,7 +30,7 @@ public interface Page {
 
     Page LAST_EMPTY = new Page() {
         @Override
-        public CompletableFuture<Page> loadNext() {
+        public CompletableFuture<Page> getNext() {
             CompletableFuture<Page> f = new CompletableFuture<>();
             f.completeExceptionally(new IllegalStateException("Must not call loadNext on last page"));
             return f;
@@ -48,7 +48,7 @@ public interface Page {
     };
 
     // alternative: remove this and replace with loadNext() in DataSource
-    CompletableFuture<Page> loadNext();
+    CompletableFuture<Page> getNext();
 
     // alternatives:
     // - Stream<Row> data();

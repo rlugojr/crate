@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public interface DataSource {
+public interface DataCursor {
 
     /**
      * PageBuilder prepareLoad()
@@ -40,7 +40,7 @@ public interface DataSource {
 
     // CompletableFuture<Page> loadNext();
 
-    CompletableFuture<Page> loadFirst();
+    CompletableFuture<Page> getNext();
 
     void close();
 
@@ -67,7 +67,7 @@ public interface DataSource {
      */
 
     interface Transformer {
-        DataSource transform(DataSource source);
+        DataCursor transform(DataCursor source);
     }
 
     interface Builder {
@@ -76,10 +76,10 @@ public interface DataSource {
         Builder filter(Predicate<Row> filter);
         Builder addTransformation(Function<Iterable<Row>, Iterable<Row>> transformation);
 
-        DataSource build();
+        DataCursor build();
     }
 
     interface Consumer {
-        void consume(DataSource source);
+        void consume(DataCursor source);
     }
 }

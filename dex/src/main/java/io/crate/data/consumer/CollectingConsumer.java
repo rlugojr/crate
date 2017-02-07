@@ -22,7 +22,7 @@
 
 package io.crate.data.consumer;
 
-import io.crate.data.DataSource;
+import io.crate.data.DataCursor;
 import io.crate.data.Page;
 import io.crate.data.Row;
 
@@ -36,14 +36,14 @@ public class CollectingConsumer {
 
     private final CompletableFuture<List<Object[]>> resultFuture = new CompletableFuture<>();
     private final List<Object[]> rows = new ArrayList<>();
-    private final DataSource dataSource;
+    private final DataCursor dataCursor;
 
-    public CollectingConsumer(DataSource dataSource) {
-        this.dataSource = dataSource;
+    public CollectingConsumer(DataCursor dataCursor) {
+        this.dataCursor = dataCursor;
     }
 
     public CompletableFuture<List<Object[]>> collect() {
-        dataSource.loadFirst().whenComplete(this::receivePage);
+        dataCursor.getNext().whenComplete(this::receivePage);
         return resultFuture;
     }
 
@@ -64,7 +64,7 @@ public class CollectingConsumer {
         if (page.isLast()) {
             resultFuture.complete(Collections.unmodifiableList(rows));
         } else {
-            page.loadNext().whenComplete(this::receivePage);
+            page.getNext().whenComplete(this::receivePage);
         }
     }
 }
