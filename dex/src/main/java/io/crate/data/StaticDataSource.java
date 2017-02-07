@@ -24,6 +24,7 @@ package io.crate.data;
 
 import com.google.common.collect.Iterables;
 
+import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -80,8 +81,8 @@ public class StaticDataSource implements DataSource {
             }
 
             @Override
-            public Iterable<Row> data() {
-                return rows;
+            public Iterator<Row> data() {
+                return rows.iterator();
             }
 
             @Override

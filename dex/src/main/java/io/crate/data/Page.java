@@ -23,6 +23,7 @@
 package io.crate.data;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 
 public interface Page {
@@ -36,8 +37,8 @@ public interface Page {
         }
 
         @Override
-        public Iterable<Row> data() {
-            return Collections.emptyList();
+        public Iterator<Row> data() {
+            return Collections.emptyIterator();
         }
 
         @Override
@@ -46,9 +47,13 @@ public interface Page {
         }
     };
 
+    // alternative: remove this and replace with loadNext() in DataSource
     CompletableFuture<Page> loadNext();
 
-    Iterable<Row> data();
+    // alternatives:
+    // - Stream<Row> data();
+    // - Spliterator<Row> data();
+    Iterator<Row> data();
 
     boolean isLast();
 }

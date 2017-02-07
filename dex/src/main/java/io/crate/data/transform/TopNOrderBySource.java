@@ -27,10 +27,7 @@ import io.crate.data.DataSource;
 import io.crate.data.Page;
 import io.crate.data.Row;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.PriorityQueue;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 public class TopNOrderBySource implements DataSource {
@@ -62,7 +59,9 @@ public class TopNOrderBySource implements DataSource {
     }
 
     private void consumePage(Page page) {
-        for (Row row : page.data()) {
+        Iterator<Row> it = page.data();
+        while (it.hasNext()) {
+            Row row = it.next();
             q.offer(row.materialize());
         }
         if (page.isLast()) {
@@ -80,12 +79,12 @@ public class TopNOrderBySource implements DataSource {
             }
 
             @Override
-            public Iterable<Row> data() {
+            public Iterator<Row> data() {
                 List<Object[]> result = new ArrayList<>(limit);
                 for (int i = 0; i < limit; i++) {
                     result.add(q.poll());
                 }
-                return new CollectionBucket(result);
+                return new CollectionBucket(result).iterator();
             }
 
             @Override

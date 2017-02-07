@@ -28,15 +28,17 @@ import java.util.function.Predicate;
 
 public interface DataSource {
 
-    // CompletableFuture<Page> loadFirst(Function<Iterable<Row>, Iterable<Row>> ... transformations);
-    // CompletableFuture<Page> loadFirst(int offset, int limit, Predicate<Row> filter);
-
     /**
      * PageBuilder prepareLoad()
      *      .limit(10)
      *      .load()
      */
 
+
+    // CompletableFuture<Page> loadFirst(Function<Iterable<Row>, Iterable<Row>> ... transformations);
+    // CompletableFuture<Page> loadFirst(int offset, int limit, Predicate<Row> filter);
+
+    // CompletableFuture<Page> loadNext();
 
     CompletableFuture<Page> loadFirst();
 

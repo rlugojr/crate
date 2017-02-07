@@ -28,6 +28,7 @@ import io.crate.data.Row;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -55,7 +56,9 @@ public class CollectingConsumer {
     }
 
     private void consumePage(Page page) {
-        for (Row row : page.data()) {
+        Iterator<Row> it = page.data();
+        while (it.hasNext()) {
+            Row row = it.next();
             rows.add(row.materialize());
         }
         if (page.isLast()) {
