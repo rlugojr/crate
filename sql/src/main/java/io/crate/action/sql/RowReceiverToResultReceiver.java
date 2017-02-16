@@ -22,9 +22,11 @@
 
 package io.crate.action.sql;
 
+import io.crate.data.BatchConsumer;
 import io.crate.data.Row;
 import io.crate.operation.projectors.*;
 
+import javax.annotation.Nullable;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -106,5 +108,11 @@ public class RowReceiverToResultReceiver implements RowReceiver {
         this.resumeHandle = null;
         this.resultReceiver = resultReceiver;
         this.maxRows = maxRows;
+    }
+
+    @Nullable
+    @Override
+    public BatchConsumer asConsumer() {
+        return new ResultReceiverConsumer(resultReceiver, maxRows);
     }
 }

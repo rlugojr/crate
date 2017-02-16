@@ -22,6 +22,7 @@
 
 package io.crate.operation.collect;
 
+import io.crate.data.BatchConsumer;
 import io.crate.data.BatchIterator;
 import io.crate.operation.projectors.BatchConsumerToRowReceiver;
 import io.crate.operation.projectors.RowReceiver;
@@ -31,11 +32,16 @@ import javax.annotation.Nullable;
 public class BatchIteratorCollector implements CrateCollector {
 
     private final BatchIterator batchIterator;
-    private final BatchConsumerToRowReceiver consumer;
+    private final BatchConsumer consumer;
 
     public BatchIteratorCollector(BatchIterator batchIterator, RowReceiver rowReceiver) {
         this.batchIterator = batchIterator;
-        this.consumer = new BatchConsumerToRowReceiver(rowReceiver);
+        BatchConsumer batchConsumer = rowReceiver.asConsumer();
+        if (batchConsumer == null) {
+            this.consumer = new BatchConsumerToRowReceiver(rowReceiver);
+        } else {
+            this.consumer = batchConsumer;
+        }
     }
 
     @Override
