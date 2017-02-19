@@ -5,6 +5,8 @@ Changes for Crate
 Unreleased
 ==========
 
+ - Enterprise Edition: Implemented the JMX monitoring plugin.
+
  - UDC: add the ``enterprise`` field to the ``UDC`` ping.
    The field identifies whether a user uses the enterprise version.
 
