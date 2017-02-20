@@ -286,7 +286,7 @@ public class ShardCollectSource extends AbstractComponent implements CollectSour
                 } else {
                     // If there are no shard-projections there is no real benefit from concurrency gained by using multiple collectors.
                     // CompositeCollector to collects single-threaded sequentially.
-                    return Collections.singletonList(new CompositeCollector(builders, firstNodeRR));
+                    return Collections.singletonList(CompositeCollector.newInstance(builders, firstNodeRR));
                 }
         }
     }

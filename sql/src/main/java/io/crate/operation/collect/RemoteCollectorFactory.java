@@ -24,10 +24,17 @@ package io.crate.operation.collect;
 
 import io.crate.breaker.RamAccountingContext;
 import io.crate.core.collections.TreeMapBuilder;
+import io.crate.data.BatchConsumer;
+import io.crate.data.BatchIterator;
+import io.crate.data.BatchIteratorProxy;
+import io.crate.data.Row;
 import io.crate.executor.transport.TransportActionProvider;
 import io.crate.jobs.JobContextService;
 import io.crate.metadata.Routing;
 import io.crate.operation.collect.collectors.RemoteCollector;
+import io.crate.operation.projectors.RepeatHandle;
+import io.crate.operation.projectors.Requirement;
+import io.crate.operation.projectors.ResumeHandle;
 import io.crate.operation.projectors.RowReceiver;
 import io.crate.planner.distribution.DistributionInfo;
 import io.crate.planner.node.dql.RoutedCollectPhase;
@@ -38,7 +45,9 @@ import org.elasticsearch.cluster.routing.ShardRouting;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 
+import javax.annotation.Nullable;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Used to create RemoteCollectors
@@ -84,8 +93,9 @@ public class RemoteCollectorFactory {
         final RoutedCollectPhase newCollectPhase = createNewCollectPhase(childJobId, collectPhase, index, shardId, remoteNodeId);
 
         return new CrateCollector.Builder() {
+
             @Override
-            public CrateCollector build(RowReceiver rowReceiver) {
+            public RemoteCollector build(RowReceiver rowReceiver) {
                 return new RemoteCollector(
                     childJobId,
                     localNodeId,
@@ -96,6 +106,14 @@ public class RemoteCollectorFactory {
                     ramAccountingContext,
                     rowReceiver,
                     newCollectPhase);
+            }
+
+            @Override
+            public BatchIterator createBatchIterator() {
+                BatchIteratorProxy batchIteratorProxy = new BatchIteratorProxy();
+                RemoteCollector remoteCollector = build(new FakeRowReceiver(batchIteratorProxy));
+                batchIteratorProxy.setLoadSourceTrigger(remoteCollector::doCollect);
+                return batchIteratorProxy;
             }
         };
     }
@@ -116,5 +134,55 @@ public class RemoteCollectorFactory {
             collectPhase.whereClause(),
             DistributionInfo.DEFAULT_BROADCAST
         );
+    }
+
+    private static class FakeRowReceiver implements RowReceiver {
+
+        private final BatchConsumer consumer;
+
+        public FakeRowReceiver(BatchConsumer consumer) {
+            this.consumer = consumer;
+        }
+
+        @Override
+        public CompletableFuture<?> completionFuture() {
+            return null;
+        }
+
+        @Override
+        public Result setNextRow(Row row) {
+            return null;
+        }
+
+        @Override
+        public void pauseProcessed(ResumeHandle resumeable) {
+
+        }
+
+        @Override
+        public void finish(RepeatHandle repeatable) {
+
+        }
+
+        @Override
+        public void fail(Throwable throwable) {
+
+        }
+
+        @Override
+        public void kill(Throwable throwable) {
+
+        }
+
+        @Override
+        public Set<Requirement> requirements() {
+            return null;
+        }
+
+        @Nullable
+        @Override
+        public BatchConsumer asConsumer() {
+            return consumer;
+        }
     }
 }

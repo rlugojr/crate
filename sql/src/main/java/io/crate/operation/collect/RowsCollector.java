@@ -21,6 +21,7 @@
 
 package io.crate.operation.collect;
 
+import io.crate.data.BatchIterator;
 import io.crate.data.Row;
 import io.crate.data.RowsBatchIterator;
 import io.crate.operation.projectors.RowReceiver;
@@ -49,6 +50,16 @@ public final class RowsCollector {
     }
 
     public static CrateCollector.Builder builder(final Iterable<Row> rows) {
-        return rowReceiver -> forRows(rows, rowReceiver);
+        return new CrateCollector.Builder() {
+            @Override
+            public CrateCollector build(RowReceiver rowReceiver) {
+                return new BatchIteratorCollector(createBatchIterator(), rowReceiver);
+            }
+
+            @Override
+            public BatchIterator createBatchIterator() {
+                return RowsBatchIterator.newInstance(rows);
+            }
+        };
     }
 }

@@ -21,6 +21,7 @@
 
 package io.crate.operation.collect;
 
+import io.crate.data.BatchIterator;
 import io.crate.operation.projectors.RowReceiver;
 
 import javax.annotation.Nullable;
@@ -29,6 +30,10 @@ public interface CrateCollector {
 
     interface Builder {
         CrateCollector build(RowReceiver rowReceiver);
+
+        default BatchIterator createBatchIterator() {
+            return null;
+        }
     }
 
     void doCollect();

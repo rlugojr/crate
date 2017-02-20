@@ -23,6 +23,7 @@
 package io.crate.operation.collect.collectors;
 
 import io.crate.breaker.RamAccountingContext;
+import io.crate.data.BatchIterator;
 import io.crate.operation.Input;
 import io.crate.operation.collect.BatchIteratorCollector;
 import io.crate.operation.collect.CrateCollector;
@@ -66,7 +67,12 @@ public class CrateDocCollectorBuilder implements CrateCollector.Builder {
 
     @Override
     public CrateCollector build(RowReceiver rowReceiver) {
-        LuceneBatchIterator batchIterator = new LuceneBatchIterator(
+        return new BatchIteratorCollector(createBatchIterator(), rowReceiver);
+    }
+
+    @Override
+    public BatchIterator createBatchIterator() {
+        return new LuceneBatchIterator(
             indexSearcher,
             query,
             minScore,
@@ -76,6 +82,5 @@ public class CrateDocCollectorBuilder implements CrateCollector.Builder {
             inputs,
             expressions
         );
-        return new BatchIteratorCollector(batchIterator, rowReceiver);
     }
 }
