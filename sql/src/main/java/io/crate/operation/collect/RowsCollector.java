@@ -37,18 +37,18 @@ public final class RowsCollector {
     }
 
     public static CrateCollector single(Row row, RowReceiver rowDownstream) {
-        return new BatchIteratorCollector(RowsBatchIterator.newInstance(Collections.singletonList(row)), rowDownstream);
+        return new BatchIteratorCollector(RowsBatchIterator.newInstance(Collections.singletonList(row), row.numColumns()), rowDownstream);
     }
 
-    public static CrateCollector forRows(Iterable<Row> rows, RowReceiver rowReceiver) {
-        return new BatchIteratorCollector(RowsBatchIterator.newInstance(rows), rowReceiver);
+    public static CrateCollector forRows(Iterable<Row> rows, int numCols, RowReceiver rowReceiver) {
+        return new BatchIteratorCollector(RowsBatchIterator.newInstance(rows, numCols), rowReceiver);
     }
 
     static CrateCollector.Builder emptyBuilder() {
         return RowsCollector::empty;
     }
 
-    public static CrateCollector.Builder builder(final Iterable<Row> rows) {
-        return rowReceiver -> forRows(rows, rowReceiver);
+    public static CrateCollector.Builder builder(final Iterable<Row> rows, int numCols) {
+        return rowReceiver -> forRows(rows, numCols, rowReceiver);
     }
 }

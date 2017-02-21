@@ -29,10 +29,15 @@ import java.util.concurrent.CompletionStage;
  */
 public abstract class ForwardingBatchIterator implements BatchIterator {
 
+    protected abstract BatchIterator delegate();
+
     protected ForwardingBatchIterator() {
     }
 
-    protected abstract BatchIterator delegate();
+    @Override
+    public InputList rowData() {
+        return delegate().rowData();
+    }
 
     @Override
     public void moveToStart() {
@@ -42,11 +47,6 @@ public abstract class ForwardingBatchIterator implements BatchIterator {
     @Override
     public boolean moveNext() {
         return delegate().moveNext();
-    }
-
-    @Override
-    public Row currentRow() {
-        return delegate().currentRow();
     }
 
     @Override

@@ -43,7 +43,7 @@ public class SkippingBatchIteratorTest {
     @Test
     public void testSkippingBatchIterator() throws Exception {
         BatchIteratorTester tester = new BatchIteratorTester(
-            () -> new SkippingBatchIterator(RowsBatchIterator.newInstance(rows), offset),
+            () -> new SkippingBatchIterator(RowsBatchIterator.newInstance(rows, 1), offset),
             expectedResult
         );
         tester.run();
@@ -53,7 +53,7 @@ public class SkippingBatchIteratorTest {
     public void testSkippingBatchIteratorWithBatchedSource() throws Exception {
         BatchIteratorTester tester = new BatchIteratorTester(
             () -> {
-                BatchIterator source= RowsBatchIterator.newInstance(rows);
+                BatchIterator source = RowsBatchIterator.newInstance(rows, 1);
                 source = new CloseAssertingBatchIterator(new BatchSimulatingIterator(source, 2, 5, null));
                 return new SkippingBatchIterator(source, offset);
             },

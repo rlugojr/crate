@@ -22,19 +22,19 @@
 
 package io.crate.testing;
 
-import io.crate.data.BatchIterator;
-import io.crate.data.BatchRowVisitor;
-import io.crate.data.Row;
+import io.crate.data.*;
 import io.crate.exceptions.Exceptions;
+import junit.framework.TestCase;
 import org.hamcrest.Matchers;
 
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.fail;
 
 /**
@@ -51,16 +51,48 @@ public class BatchIteratorTester {
         this.expectedResult = expectedResult;
     }
 
+    private static void assertIndexOutOfBounds(InputList inputs, int index) {
+        try {
+            inputs.get(index);
+            TestCase.fail("expected a IndexOutOfBoundsException but call did not fail");
+        } catch (Throwable ex) {
+            assertThat(ex, instanceOf(IndexOutOfBoundsException.class));
+        }
+
+    }
+
+    private static InputList assertValidRowData(BatchIterator it) {
+        return assertValidInputList(it::rowData);
+    }
+
+    public static InputList assertValidInputList(Supplier<InputList> supplier) {
+        InputList first = supplier.get();
+        assertThat(first, notNullValue());
+        InputList second = supplier.get();
+        assertThat(first, sameInstance(second));
+
+        List<Input<?>> inputs = IntStream.range(0, first.size()).mapToObj(first::get).collect(Collectors.toList());
+        int pos = 0;
+        for (Input<?> input : first) {
+            assertThat(input, sameInstance(inputs.get(pos)));
+            assertThat(first.get(pos), sameInstance(inputs.get(pos)));
+            assertThat(second.get(pos), sameInstance(inputs.get(pos)));
+        }
+        assertThat(pos, is(first.size() - 1));
+        assertIndexOutOfBounds(first, pos + 1);
+        assertIndexOutOfBounds(first, -1);
+        return first;
+    }
+
     public void run() throws Exception {
         testProperConsumption(it.get());
-        testFailsIfClosed(it.get());
+        testBehaviourAfterClose(it.get());
         testIteratorAccessFromDifferentThreads(it.get());
         testIllegalNextBatchCall(it.get());
-        testCurrentRowIsInvalidAfterMoveToFirst(it.get());
         testMoveNextAfterMoveNextReturnedFalse(it.get());
-        testAccessRowAfterMoveNextReturnedFalse(it.get());
         testIllegalStateIsRaisedIfMoveIsCalledWhileLoadingNextBatch(it.get());
         testMoveToStartAndReConsumptionMatchesRowsOnFirstConsumption(it.get());
+        testInputListBehaviour(it.get());
     }
 
     private void testMoveToStartAndReConsumptionMatchesRowsOnFirstConsumption(BatchIterator it) throws Exception {
@@ -75,9 +107,9 @@ public class BatchIteratorTester {
     }
 
     private void testIllegalStateIsRaisedIfMoveIsCalledWhileLoadingNextBatch(BatchIterator it) {
-        while (it.allLoaded() == false) {
+        while (!it.allLoaded()) {
             CompletableFuture<?> nextBatchFuture = it.loadNextBatch().toCompletableFuture();
-            while (nextBatchFuture.isDone() == false) {
+            while (!nextBatchFuture.isDone()) {
                 try {
                     it.moveNext();
                     if (nextBatchFuture.isDone()) {
@@ -92,34 +124,13 @@ public class BatchIteratorTester {
         }
     }
 
-    private void testCurrentRowIsInvalidAfterMoveToFirst(BatchIterator it) throws Exception {
-        CollectingBatchConsumer.moveToEnd(it).toCompletableFuture().get(10, TimeUnit.SECONDS);
-        it.moveToStart();
-        assertMaterializeFails(it);
-    }
-
-    private void testAccessRowAfterMoveNextReturnedFalse(BatchIterator it) {
-        CollectingBatchConsumer consumer = new CollectingBatchConsumer();
-        consumer.accept(it, null);
-
-        assertMaterializeFails(it);
-    }
-
-    private void assertMaterializeFails(BatchIterator it) {
-        expectFailure(
-            () -> it.currentRow().materialize(),
-            IllegalStateException.class,
-            "materialize call should fail if moveNext returned false");
-
-    }
-
     private void testMoveNextAfterMoveNextReturnedFalse(BatchIterator it) throws Exception {
         CollectingBatchConsumer.moveToEnd(it).toCompletableFuture().get(10, TimeUnit.SECONDS);
         assertThat(it.moveNext(), is(false));
     }
 
     private void testIllegalNextBatchCall(BatchIterator it) throws Exception {
-        while (it.allLoaded() == false) {
+        while (!it.allLoaded()) {
             it.loadNextBatch().toCompletableFuture().get(10, TimeUnit.SECONDS);
         }
         CompletionStage<?> completionStage = it.loadNextBatch();
@@ -131,14 +142,15 @@ public class BatchIteratorTester {
             return;
         }
         ExecutorService executor = Executors.newFixedThreadPool(3);
+        final InputList inputs = it.rowData();
         try {
             CompletableFuture<Object[]> firstRow = CompletableFuture.supplyAsync(() -> {
                 assertThat("it should have at least two rows, first missing", getBatchAwareMoveNext(it), is(true));
-                return it.currentRow().materialize();
+                return RowBridging.materialize(inputs);
             }, executor);
             CompletableFuture<Object[]> secondRow = firstRow.thenApplyAsync(row -> {
                 assertThat("it should have at least two rows", getBatchAwareMoveNext(it), is(true));
-                return it.currentRow().materialize();
+                return RowBridging.materialize(inputs);
             }, executor);
 
             assertThat(firstRow.get(10, TimeUnit.SECONDS), is(expectedResult.get(0)));
@@ -170,11 +182,26 @@ public class BatchIteratorTester {
             .toCompletableFuture();
     }
 
-    private void testFailsIfClosed(BatchIterator it) {
+    private void testInputListBehaviour(BatchIterator it) {
+        InputList inputs = assertValidRowData(it);
+        assertThat(it.rowData(), sameInstance(inputs));
+        it.moveNext();
+        assertThat(it.rowData(), sameInstance(inputs));
         it.close();
+        assertThat(it.rowData(), sameInstance(inputs));
+    }
+
+    private void testBehaviourAfterClose(BatchIterator it) {
+        InputList inputs = it.rowData();
+        assertThat(inputs.size(), greaterThan(0));
+
+
+        it.close();
+        // after close the rowData call is still valid
+        assertThat(it.rowData().size(), greaterThan(0));
+
         expectFailure(it::moveNext, IllegalStateException.class, "moveNext must fail after close");
         expectFailure(it::moveToStart, IllegalStateException.class, "moveToStart must fail after close");
-        expectFailure(it::currentRow, IllegalStateException.class, "currentRow must fail after close");
         expectFailure(it::allLoaded, IllegalStateException.class, "allLoaded must fail after close");
     }
 
@@ -193,7 +220,7 @@ public class BatchIteratorTester {
             runnable.run();
             fail(reason);
         } catch (Exception e) {
-            assertThat(expectedException.isInstance(e), is(true));
+            assertThat(e, instanceOf(expectedException));
         }
     }
 }

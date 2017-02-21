@@ -20,33 +20,28 @@
  * agreement.
  */
 
-package io.crate.data;
+package io.crate.testing;
 
-import java.util.function.BooleanSupplier;
-import java.util.function.Function;
+import io.crate.data.BatchIterator;
+import org.junit.Test;
 
-public class FilteringBatchIterator extends ForwardingBatchIterator {
+import java.util.List;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-    private final BatchIterator delegate;
-    private final BooleanSupplier filter;
+public class SingleColumnBatchIteratorTest {
 
-    public FilteringBatchIterator(BatchIterator delegate, Function<InputList, BooleanSupplier> filterGenerator) {
-        this.delegate = delegate;
-        this.filter = filterGenerator.apply(delegate.rowData());
-    }
+    @Test
+    public void testCollect() throws Exception {
+        List<Object[]> expectedResult = IntStream.range(0, 20)
+            .mapToObj(l -> new Object[]{l}).collect(Collectors.toList());
+        Supplier<BatchIterator> batchIteratorSupplier = () -> SingleColumnBatchIterator.range(0, 20);
 
-    @Override
-    protected BatchIterator delegate() {
-        return delegate;
-    }
-
-    @Override
-    public boolean moveNext() {
-        while (delegate.moveNext()) {
-            if (filter.getAsBoolean()) {
-                return true;
-            }
-        }
-        return false;
+        BatchIteratorTester tester = new BatchIteratorTester(
+            batchIteratorSupplier,
+            expectedResult
+        );
+        tester.run();
     }
 }

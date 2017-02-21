@@ -22,31 +22,18 @@
 
 package io.crate.data;
 
-import java.util.function.BooleanSupplier;
-import java.util.function.Function;
+import io.crate.testing.BatchIteratorTester;
+import org.junit.Test;
 
-public class FilteringBatchIterator extends ForwardingBatchIterator {
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
-    private final BatchIterator delegate;
-    private final BooleanSupplier filter;
+public class InputListTest {
 
-    public FilteringBatchIterator(BatchIterator delegate, Function<InputList, BooleanSupplier> filterGenerator) {
-        this.delegate = delegate;
-        this.filter = filterGenerator.apply(delegate.rowData());
-    }
-
-    @Override
-    protected BatchIterator delegate() {
-        return delegate;
-    }
-
-    @Override
-    public boolean moveNext() {
-        while (delegate.moveNext()) {
-            if (filter.getAsBoolean()) {
-                return true;
-            }
-        }
-        return false;
+    @Test
+    public void testSingleCol() throws Exception {
+        InputList inputs = InputList.singleCol(() -> 1);
+        BatchIteratorTester.assertValidInputList(() -> inputs);
+        assertThat(inputs.get(0).value(), is(1));
     }
 }

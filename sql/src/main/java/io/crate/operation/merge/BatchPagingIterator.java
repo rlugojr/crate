@@ -24,7 +24,9 @@ package io.crate.operation.merge;
 
 import io.crate.concurrent.CompletableFutures;
 import io.crate.data.BatchIterator;
+import io.crate.data.InputList;
 import io.crate.data.Row;
+import io.crate.data.RowBridging;
 
 import javax.annotation.Nullable;
 import java.util.Iterator;
@@ -51,9 +53,10 @@ public class BatchPagingIterator implements BatchIterator {
     private final Function<Integer, Boolean> tryFetchMore;
     private final BooleanSupplier isUpstreamExhausted;
     private final Runnable closeCallback;
+    private final InputList rowData;
 
     private Iterator<Row> it;
-    private Row currentRow;
+    private Row currentRow = OFF_ROW;
     private boolean reachedEnd = false;
     private CompletableFuture<Void> currentlyLoading;
 
@@ -62,18 +65,24 @@ public class BatchPagingIterator implements BatchIterator {
     public BatchPagingIterator(PagingIterator<Integer, Row> pagingIterator,
                                Function<Integer, Boolean> tryFetchMore,
                                BooleanSupplier isUpstreamExhausted,
-                               Runnable closeCallback) {
+                               Runnable closeCallback,
+                               int numCols) {
         this.pagingIterator = pagingIterator;
         this.it = pagingIterator;
         this.tryFetchMore = tryFetchMore;
         this.isUpstreamExhausted = isUpstreamExhausted;
         this.closeCallback = closeCallback;
+        this.rowData = RowBridging.toInputs(() -> currentRow, numCols);
+    }
+
+    @Override
+    public InputList rowData() {
+        return rowData;
     }
 
     @Override
     public void moveToStart() {
         raiseIfClosed();
-
         if (reachedEnd) {
             this.it = pagingIterator.repeat().iterator();
             currentRow = OFF_ROW;
@@ -96,14 +105,8 @@ public class BatchPagingIterator implements BatchIterator {
     }
 
     @Override
-    public Row currentRow() {
-        raiseIfClosed();
-        return currentRow;
-    }
-
-    @Override
     public void close() {
-        if (closed == false) {
+        if (!closed) {
             closed = true;
             closeCallback.run();
         }

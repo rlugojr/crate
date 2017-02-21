@@ -444,6 +444,7 @@ public class ShardCollectSource extends AbstractComponent implements CollectSour
         }
         return RowsCollector.forRows(
             Iterables.transform(rows, Buckets.arrayToRowFunction()),
+            collectPhase.outputTypes().size(),
             rowReceiver
         );
     }

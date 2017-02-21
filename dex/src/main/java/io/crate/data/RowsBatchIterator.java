@@ -37,19 +37,26 @@ public class RowsBatchIterator implements BatchIterator {
     private final Iterable<Row> rows;
     private Iterator<Row> it;
     private Row currentRow = BatchIterator.OFF_ROW;
+    private final InputList rowData;
 
     public static BatchIterator empty() {
-        return newInstance(Collections.emptyList());
+        return newInstance(Collections.emptyList(), 0);
     }
 
-    public static BatchIterator newInstance(Iterable<Row> rows) {
-        return new CloseAssertingBatchIterator(new RowsBatchIterator(rows));
+    public static BatchIterator newInstance(Iterable<Row> rows, int numCols) {
+        return new CloseAssertingBatchIterator(new RowsBatchIterator(rows, numCols));
     }
 
     @VisibleForTesting
-    RowsBatchIterator(Iterable<Row> rows) {
+    RowsBatchIterator(Iterable<Row> rows, int numCols) {
+        rowData = RowBridging.toInputs(() -> currentRow, numCols);
         this.rows = rows;
         this.it = rows.iterator();
+    }
+
+    @Override
+    public InputList rowData() {
+        return rowData;
     }
 
     @Override
@@ -80,10 +87,5 @@ public class RowsBatchIterator implements BatchIterator {
     @Override
     public boolean allLoaded() {
         return true;
-    }
-
-    @Override
-    public Row currentRow() {
-        return currentRow;
     }
 }

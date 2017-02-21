@@ -44,7 +44,8 @@ public class BatchPagingIteratorTest {
                 pagingIterator,
                 exhaustedIt -> false,
                 () -> true,
-                () -> {}
+                () -> {},
+                1
             );
         }, StreamSupport.stream(rows.spliterator(), false)
             .map(Row::materialize)
