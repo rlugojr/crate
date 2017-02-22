@@ -54,43 +54,62 @@ public class Functions {
     }
 
     /**
-     * <p>
-     * returns the functionImplementation for the given ident.
-     * </p>
-     * <p>
-     * same as {@link #get(FunctionIdent)} but will throw an UnsupportedOperationException
-     * if no implementation is found.
+     * Convenience method overload for {@link #getSafe(String, List)}
+     *
+     * Only use this if there is already a functionIdent. If it would be necessary to create one
+     * use the other method overload.
      */
-    public FunctionImplementation getSafe(FunctionIdent ident)
-        throws IllegalArgumentException, UnsupportedOperationException {
-        FunctionImplementation implementation = null;
-        String exceptionMessage = null;
-        try {
-            implementation = get(ident);
-        } catch (IllegalArgumentException e) {
-            if (e.getMessage() != null && !e.getMessage().isEmpty()) {
-                exceptionMessage = e.getMessage();
-            }
-        }
-        if (implementation == null) {
-            if (exceptionMessage == null) {
-                exceptionMessage = String.format(Locale.ENGLISH, "unknown function: %s(%s)", ident.name(),
-                    Joiner.on(", ").join(ident.argumentTypes()));
-            }
-            throw new UnsupportedOperationException(exceptionMessage);
-        }
-        return implementation;
+    public FunctionImplementation getSafe(FunctionIdent ident) {
+        return getSafe(ident.name(), ident.argumentTypes());
     }
 
     /**
-     * returns the functionImplementation for the given ident
-     * or null if nothing was found
+     * <p>
+     * returns the functionImplementation for the given functionName and argumentTypes.
+     * </p>
+     * <p>
+     * same as {@link #get(String, List)} )} but will throw an UnsupportedOperationException
+     * if no implementation is found.
+     */
+    public FunctionImplementation getSafe(String name, List<DataType> argumentTypes)
+        throws IllegalArgumentException, UnsupportedOperationException {
+
+            FunctionImplementation implementation = null;
+            String exceptionMessage = null;
+            try {
+                implementation = get(name, argumentTypes);
+            } catch (IllegalArgumentException e) {
+                if (e.getMessage() != null && !e.getMessage().isEmpty()) {
+                    exceptionMessage = e.getMessage();
+                }
+            }
+            if (implementation == null) {
+                if (exceptionMessage == null) {
+                    exceptionMessage = String.format(Locale.ENGLISH, "unknown function: %s(%s)", name,
+                        Joiner.on(", ").join(argumentTypes));
+                }
+                throw new UnsupportedOperationException(exceptionMessage);
+            }
+            return implementation;
+    }
+
+    /**
+     * convenience overload for {@link #get(String, List)}.
+     * Only use this if a FunctionIdent is already available. Use the other overload instead of creating a new one.
      */
     @Nullable
     public FunctionImplementation get(FunctionIdent ident) throws IllegalArgumentException {
-        FunctionResolver dynamicResolver = functionResolvers.get(ident.name());
+        return get(ident.name(), ident.argumentTypes());
+    }
+
+    /**
+     * returns the functionImplementation for the given functionName and argumentTypes
+     * or null if nothing was found
+     */
+    @Nullable
+    public FunctionImplementation get(String name, List<DataType> argumentTypes) {
+        FunctionResolver dynamicResolver = functionResolvers.get(name);
         if (dynamicResolver != null) {
-            List<DataType> argumentTypes = ident.argumentTypes();
             List<DataType> signature = dynamicResolver.getSignature(argumentTypes);
             if (signature != null) {
                 return dynamicResolver.getForTypes(signature);
