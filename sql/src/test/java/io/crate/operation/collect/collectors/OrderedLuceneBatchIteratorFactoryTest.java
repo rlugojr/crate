@@ -58,7 +58,7 @@ import java.util.stream.LongStream;
 import static io.crate.testing.TestingHelpers.createReference;
 import static org.mockito.Mockito.mock;
 
-public class OrderedLuceneBatchIteratorTest {
+public class OrderedLuceneBatchIteratorFactoryTest {
 
     private String columnName = "x";
     private Reference reference = createReference(columnName, DataTypes.LONG);
@@ -113,7 +113,7 @@ public class OrderedLuceneBatchIteratorTest {
             () -> {
                 LuceneOrderedDocCollector collector1 = createOrderedCollector(searcher1, 1);
                 LuceneOrderedDocCollector collector2 = createOrderedCollector(searcher2, 2);
-                return OrderedLuceneBatchIterator.newInstance(
+                return OrderedLuceneBatchIteratorFactory.newInstance(
                     Arrays.asList(collector1, collector2),
                     OrderingByPosition.rowOrdering(new int[] { 0 }, reverseFlags, nullsFirst),
                     MoreExecutors.directExecutor(),
