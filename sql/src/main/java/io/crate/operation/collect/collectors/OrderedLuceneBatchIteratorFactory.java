@@ -26,13 +26,14 @@ import io.crate.concurrent.CompletableFutures;
 import io.crate.data.BatchIterator;
 import io.crate.data.Row;
 import io.crate.operation.merge.*;
+import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
 import org.elasticsearch.index.shard.ShardId;
 
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * Factory to create a BatchIterator which is backed by 1 or more {@link OrderedDocCollector}.
@@ -53,7 +54,6 @@ public class OrderedLuceneBatchIteratorFactory {
         private final List<OrderedDocCollector> orderedDocCollectors;
         private final Executor executor;
         private final PagingIterator<ShardId, Row> pagingIterator;
-        private final Function<ShardId, Boolean> tryFetchMore;
         private final Map<ShardId, OrderedDocCollector> collectorsByShardId;
 
         private BatchPagingIterator<ShardId> batchPagingIterator;
@@ -65,14 +65,11 @@ public class OrderedLuceneBatchIteratorFactory {
             this.orderedDocCollectors = orderedDocCollectors;
             this.executor = executor;
             if (orderedDocCollectors.size() == 1) {
-                OrderedDocCollector orderedDocCollector = orderedDocCollectors.get(0);
-                tryFetchMore = shardId -> loadFrom(orderedDocCollector);
                 pagingIterator = requiresScroll ?
                     PassThroughPagingIterator.repeatable() : PassThroughPagingIterator.oneShot();
                 collectorsByShardId = null;
             } else {
                 collectorsByShardId = toMapByShardId(orderedDocCollectors);
-                tryFetchMore = this::manyTryFetchMore;
                 pagingIterator = new SortedPagingIterator<>(rowComparator, requiresScroll);
             }
         }
@@ -80,15 +77,15 @@ public class OrderedLuceneBatchIteratorFactory {
         BatchIterator create() {
             batchPagingIterator = new BatchPagingIterator<>(
                 pagingIterator,
-                tryFetchMore,
-                this::areAllExhausted,
+                this::tryFetchMore,
+                this::allExhausted,
                 this::close
             );
             return batchPagingIterator;
         }
 
-        private Boolean manyTryFetchMore(ShardId shardId) {
-            if (areAllExhausted()) {
+        private boolean tryFetchMore(ShardId shardId) {
+            if (allExhausted()) {
                 return false;
             }
             if (shardId == null) {
@@ -99,41 +96,42 @@ public class OrderedLuceneBatchIteratorFactory {
             }
         }
 
-        private boolean loadFrom(OrderedDocCollector orderedDocCollector) {
+        private boolean loadFrom(OrderedDocCollector collector) {
             KeyIterable<ShardId, Row> rows;
             try {
-                rows = orderedDocCollector.get();
+                rows = collector.get();
             } catch (Exception e) {
                 batchPagingIterator.completeLoad(e);
-                return false;
+                return true;
             }
-            pagingIterator.merge(Collections.singletonList(rows));
-            if (orderedDocCollector.exhausted) {
-                pagingIterator.finish();
-            }
+            mergeAndMaybeUnlock(Collections.singletonList(rows));
             batchPagingIterator.completeLoad(null);
             return true;
         }
 
         private void onNextRows(List<KeyIterable<ShardId, Row>> rowsList, @Nullable Throwable throwable) {
             if (throwable == null) {
-                pagingIterator.merge(rowsList);
-                if (areAllExhausted()) {
-                    pagingIterator.finish();
-                }
+                mergeAndMaybeUnlock(rowsList);
             }
             batchPagingIterator.completeLoad(throwable);
         }
 
-        private void close() {
-            for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
-                orderedDocCollector.close();
+        private void mergeAndMaybeUnlock(List<KeyIterable<ShardId, Row>> rowsList) {
+            pagingIterator.merge(rowsList);
+            if (allExhausted()) {
+                pagingIterator.finish();
             }
         }
 
-        private boolean areAllExhausted() {
-            for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
-                if (!orderedDocCollector.exhausted) {
+        private void close() {
+            for (OrderedDocCollector collector : orderedDocCollectors) {
+                collector.close();
+            }
+        }
+
+        private boolean allExhausted() {
+            for (OrderedDocCollector collector : orderedDocCollectors) {
+                if (!collector.exhausted) {
                     return false;
                 }
             }
@@ -141,23 +139,24 @@ public class OrderedLuceneBatchIteratorFactory {
         }
     }
 
-    private static CompletableFuture<List<KeyIterable<ShardId, Row>>> loadFromAllUnExhausted(List<OrderedDocCollector> orderedDocCollectors,
+    private static CompletableFuture<List<KeyIterable<ShardId, Row>>> loadFromAllUnExhausted(List<OrderedDocCollector> collectors,
                                                                                              Executor executor) {
-        List<CompletableFuture<KeyIterable<ShardId, Row>>> futures = new ArrayList<>(orderedDocCollectors.size());
-        for (OrderedDocCollector orderedDocCollector : orderedDocCollectors.subList(1, orderedDocCollectors.size())) {
-            if (orderedDocCollector.exhausted) {
-                continue;
+        List<CompletableFuture<KeyIterable<ShardId, Row>>> futures = new ArrayList<>(collectors.size());
+        for (OrderedDocCollector collector : collectors.subList(1, collectors.size())) {
+            try {
+                futures.add(CompletableFuture.supplyAsync(collector, executor));
+            } catch (EsRejectedExecutionException | RejectedExecutionException e) {
+                futures.add(CompletableFuture.completedFuture(collector.get()));
             }
-            futures.add(CompletableFuture.supplyAsync(orderedDocCollector, executor));
         }
-        futures.add(CompletableFuture.completedFuture(orderedDocCollectors.get(0).get()));
+        futures.add(CompletableFuture.completedFuture(collectors.get(0).get()));
         return CompletableFutures.allAsList(futures);
     }
 
-    private static Map<ShardId, OrderedDocCollector> toMapByShardId(List<OrderedDocCollector> orderedDocCollectors) {
-        Map<ShardId, OrderedDocCollector> collectorsByShardId = new HashMap<>(orderedDocCollectors.size());
-        for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
-            collectorsByShardId.put(orderedDocCollector.shardId(), orderedDocCollector);
+    private static Map<ShardId, OrderedDocCollector> toMapByShardId(List<OrderedDocCollector> collectors) {
+        Map<ShardId, OrderedDocCollector> collectorsByShardId = new HashMap<>(collectors.size());
+        for (OrderedDocCollector collector : collectors) {
+            collectorsByShardId.put(collector.shardId(), collector);
         }
         return collectorsByShardId;
     }
