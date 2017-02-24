@@ -33,9 +33,9 @@ public abstract class OrderedDocCollector implements Callable<KeyIterable<ShardI
     private final ShardId shardId;
     private final KeyIterable<ShardId, Row> empty;
 
-    protected volatile boolean exhausted = false;
+    volatile boolean exhausted = false;
 
-    public OrderedDocCollector(ShardId shardId) {
+    OrderedDocCollector(ShardId shardId) {
         this.shardId = shardId;
         empty = new KeyIterable<>(shardId, Collections.<Row>emptyList());
     }

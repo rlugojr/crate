@@ -81,7 +81,7 @@ public class LuceneOrderedDocCollector extends OrderedDocCollector {
                                      CollectorContext collectorContext,
                                      OrderBy orderBy,
                                      Sort sort,
-                                     List<Input<?>> inputs,
+                                     List<? extends Input<?>> inputs,
                                      Collection<? extends LuceneCollectorExpression<?>> expressions) {
         super(shardId);
         this.searcher = searcher;
