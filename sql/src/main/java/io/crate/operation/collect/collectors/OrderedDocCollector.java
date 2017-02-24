@@ -27,9 +27,9 @@ import io.crate.operation.merge.KeyIterable;
 import org.elasticsearch.index.shard.ShardId;
 
 import java.util.Collections;
-import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
-public abstract class OrderedDocCollector implements Callable<KeyIterable<ShardId, Row>>, AutoCloseable {
+public abstract class OrderedDocCollector implements Supplier<KeyIterable<ShardId, Row>>, AutoCloseable {
     private final ShardId shardId;
     private final KeyIterable<ShardId, Row> empty;
 
@@ -50,21 +50,21 @@ public abstract class OrderedDocCollector implements Callable<KeyIterable<ShardI
 
     /**
      * Returns an iterable for a batch of rows. In order to consume all rows of this collector,
-     * {@linkplain #call()} needs to be called while {@linkplain #exhausted()} is {@code false}.
-     * After {@linkplain #exhausted()} is {@code true}, all subsequent calls to {@linkplain #call()}
+     * {@code #get()} needs to be called while {@linkplain #exhausted()} is {@code false}.
+     * After {@linkplain #exhausted()} is {@code true}, all subsequent calls to {@code #get()}
      * will return an empty iterable.
      *
      * @return an iterable for the next batch of rows.
      */
     @Override
-    public KeyIterable<ShardId, Row> call() throws Exception {
+    public KeyIterable<ShardId, Row> get() {
         if (exhausted) {
             return empty();
         }
         return collect();
     }
 
-    protected abstract KeyIterable<ShardId, Row> collect() throws Exception;
+    protected abstract KeyIterable<ShardId, Row> collect();
 
     /**
      * Returns {@code true} if this collector has no rows to deliver anymore.

@@ -22,15 +22,16 @@
 
 package io.crate.operation.collect.collectors;
 
+import io.crate.concurrent.CompletableFutures;
 import io.crate.data.BatchIterator;
 import io.crate.data.Row;
 import io.crate.operation.merge.*;
 import org.elasticsearch.index.shard.ShardId;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 public class OrderedLuceneBatchIterator {
@@ -44,23 +45,25 @@ public class OrderedLuceneBatchIterator {
         if (singleShard) {
             return singleShardBatchIterator(orderedDocCollectors.get(0), requiresScroll);
         }
-        return manyShardsBatchIterator(orderedDocCollectors, rowComparator, requiresScroll);
+        return manyShardsBatchIterator(orderedDocCollectors, rowComparator, requiresScroll, executor);
     }
 
     private static BatchIterator manyShardsBatchIterator(List<OrderedDocCollector> orderedDocCollectors,
                                                          Comparator<Row> rowComparator,
-                                                         boolean requiresScroll) {
-        BooleanSupplier allExhausted = getAllExhaustedSupplier(orderedDocCollectors);
-        Map<ShardId, OrderedDocCollector> collectorsByShardId = toMapByShardId(orderedDocCollectors);
-
+                                                         boolean requiresScroll,
+                                                         Executor executor) {
         PagingIterator<ShardId, Row> pagingIterator = new SortedPagingIterator<>(rowComparator, requiresScroll);
         AtomicReference<BatchPagingIterator<ShardId>> batchItRef = new AtomicReference<>();
         Function<ShardId, Boolean> tryFetchMore = getTryFetchMoreFunction(
-            orderedDocCollectors, allExhausted, batchItRef, pagingIterator, collectorsByShardId);
+            orderedDocCollectors,
+            batchItRef,
+            pagingIterator,
+            executor
+        );
         BatchPagingIterator<ShardId> batchIt = new BatchPagingIterator<>(
             pagingIterator,
             tryFetchMore,
-            allExhausted,
+            () -> areAllExhausted(orderedDocCollectors),
             () -> {
                 for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
                     orderedDocCollector.close();
@@ -71,43 +74,43 @@ public class OrderedLuceneBatchIterator {
         return batchIt;
     }
 
-    private static Map<ShardId, OrderedDocCollector> toMapByShardId(List<OrderedDocCollector> orderedDocCollectors) {
-        Map<ShardId, OrderedDocCollector> collectorsByShardId = new HashMap<>(orderedDocCollectors.size());
-        for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
-            collectorsByShardId.put(orderedDocCollector.shardId(), orderedDocCollector);
-        }
-        return collectorsByShardId;
-    }
-
-    private static BooleanSupplier getAllExhaustedSupplier(List<OrderedDocCollector> orderedDocCollectors) {
-        return () -> {
-            for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
-                if (!orderedDocCollector.exhausted) {
-                    return false;
-                }
-            }
-            return true;
-        };
-    }
-
     private static Function<ShardId, Boolean> getTryFetchMoreFunction(List<OrderedDocCollector> orderedDocCollectors,
-                                                                      BooleanSupplier allExhausted,
                                                                       AtomicReference<BatchPagingIterator<ShardId>> batchItRef,
                                                                       PagingIterator<ShardId, Row> pagingIterator,
-                                                                      Map<ShardId, OrderedDocCollector> collectorsByShardId) {
+                                                                      Executor executor) {
+        Map<ShardId, OrderedDocCollector> collectorsByShardId = toMapByShardId(orderedDocCollectors);
         return shardId -> {
-            if (allExhausted.getAsBoolean()) {
+            if (areAllExhausted(orderedDocCollectors)) {
                 return false;
             }
+            BatchPagingIterator<ShardId> batchPagingIterator = batchItRef.get();
             if (shardId == null) {
-                loadFromAllUnExhausted(pagingIterator, orderedDocCollectors);
+                loadFromAllUnExhausted(orderedDocCollectors, executor).whenComplete((r, f) -> {
+                    if (f == null) {
+                        pagingIterator.merge(r);
+                        if (areAllExhausted(orderedDocCollectors)) {
+                            pagingIterator.finish();
+                        }
+                        batchPagingIterator.completeLoad(null);
+                    } else {
+                        batchPagingIterator.completeLoad(f);
+                    }
+                });
             } else {
-                loadMore(pagingIterator, collectorsByShardId.get(shardId));
+                OrderedDocCollector collector = collectorsByShardId.get(shardId);
+                KeyIterable<ShardId, Row> rows;
+                try {
+                    rows = collector.get();
+                } catch (Throwable t) {
+                    batchPagingIterator.completeLoad(t);
+                    return false;
+                }
+                pagingIterator.merge(Collections.singletonList(rows));
+                if (areAllExhausted(orderedDocCollectors)) {
+                    pagingIterator.finish();
+                }
+                batchPagingIterator.completeLoad(null);
             }
-            if (allExhausted.getAsBoolean()) {
-                pagingIterator.finish();
-            }
-            batchItRef.get().completeLoad(null);
             return true;
         };
     }
@@ -116,8 +119,6 @@ public class OrderedLuceneBatchIterator {
         PagingIterator<ShardId, Row> pagingIterator =
             requiresScroll ? PassThroughPagingIterator.repeatable() : PassThroughPagingIterator.oneShot();
 
-        // TODO: should we add a PagingIteratorLoadedListenable/Listener to the BatchPagingIterator
-        // to replace the atomicRef/ BatchPagingIterator.completeLoaded
         AtomicReference<BatchPagingIterator<ShardId>> batchItRef = new AtomicReference<>();
         BatchPagingIterator<ShardId> batchIt = new BatchPagingIterator<>(
             pagingIterator,
@@ -139,9 +140,7 @@ public class OrderedLuceneBatchIterator {
             BatchPagingIterator<ShardId> batchIt = batchItRef.get();
             KeyIterable<ShardId, Row> rows;
             try {
-                // TODO: should we use the executor here? Or do we assume that the consumer of the batchIterator
-                // is already in a non-netty thread and blocking for disk I/O is okay here?
-                rows = orderedDocCollector.call();
+                rows = orderedDocCollector.get();
             } catch (Exception e) {
                 batchIt.completeLoad(e);
                 return false;
@@ -155,30 +154,33 @@ public class OrderedLuceneBatchIterator {
         };
     }
 
-    private static void loadFromAllUnExhausted(PagingIterator<ShardId, Row> pagingIterator,
-                                               List<OrderedDocCollector> orderedDocCollectors) {
-        List<KeyIterable<ShardId, Row>> rowsList = new ArrayList<>();
-
-        for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
+    private static CompletableFuture<List<KeyIterable<ShardId, Row>>> loadFromAllUnExhausted(List<OrderedDocCollector> orderedDocCollectors,
+                                                                                             Executor executor) {
+        List<CompletableFuture<KeyIterable<ShardId, Row>>> futures = new ArrayList<>(orderedDocCollectors.size());
+        for (OrderedDocCollector orderedDocCollector : orderedDocCollectors.subList(1, orderedDocCollectors.size())) {
             if (orderedDocCollector.exhausted) {
                 continue;
             }
-            // TODO: probably want to keep the old pattern to run call in a separate thread for all but one docCollector
-            try {
-                rowsList.add(orderedDocCollector.call());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            futures.add(CompletableFuture.supplyAsync(orderedDocCollector, executor));
         }
-        pagingIterator.merge(rowsList);
+        futures.add(CompletableFuture.completedFuture(orderedDocCollectors.get(0).get()));
+        return CompletableFutures.allAsList(futures);
     }
 
-    private static void loadMore(PagingIterator<ShardId, Row> pagingIterator, OrderedDocCollector orderedDocCollector) {
-        try {
-            KeyIterable<ShardId, Row> keyIterable = orderedDocCollector.call();
-            pagingIterator.merge(Collections.singletonList(keyIterable));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    private static boolean areAllExhausted(List<OrderedDocCollector> orderedDocCollectors) {
+        for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
+            if (!orderedDocCollector.exhausted) {
+                return false;
+            }
         }
+        return true;
+    }
+
+    private static Map<ShardId, OrderedDocCollector> toMapByShardId(List<OrderedDocCollector> orderedDocCollectors) {
+        Map<ShardId, OrderedDocCollector> collectorsByShardId = new HashMap<>(orderedDocCollectors.size());
+        for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
+            collectorsByShardId.put(orderedDocCollector.shardId(), orderedDocCollector);
+        }
+        return collectorsByShardId;
     }
 }
