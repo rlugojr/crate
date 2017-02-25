@@ -25,20 +25,21 @@ package io.crate.data;
 import io.crate.testing.BatchIteratorTester;
 import org.junit.Test;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import java.util.Collections;
 
-public class InputListTest {
-
-    @Test
-    public void testSingleCol() throws Exception {
-        InputList inputs = InputList.singleCol(() -> 1);
-        BatchIteratorTester.assertValidInputList(() -> inputs);
-        assertThat(inputs.get(0).value(), is(1));
-    }
+public class IterableBackedBatchIteratorTest {
 
     @Test
     public void testEmpty() throws Exception {
-        BatchIteratorTester.assertValidInputList(() -> InputList.EMPTY);
+        BatchIteratorTester t = new BatchIteratorTester(IterableBackedBatchIterator::empty, Collections.emptyList());
+        t.run();
+    }
+
+    @Test
+    public void testSingle() throws Exception {
+        InputList inputs = InputList.singleCol(() -> 42);
+        BatchIteratorTester t = new BatchIteratorTester(() -> IterableBackedBatchIterator.singleRow(inputs),
+            Collections.singletonList(new Object[]{42}));
+        t.run();
     }
 }

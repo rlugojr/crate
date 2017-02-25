@@ -72,8 +72,9 @@ public class BatchIteratorTester {
         assertThat(first, sameInstance(second));
 
         List<Input<?>> inputs = IntStream.range(0, first.size()).mapToObj(first::get).collect(Collectors.toList());
-        int pos = 0;
+        int pos = -1;
         for (Input<?> input : first) {
+            pos++;
             assertThat(input, sameInstance(inputs.get(pos)));
             assertThat(first.get(pos), sameInstance(inputs.get(pos)));
             assertThat(second.get(pos), sameInstance(inputs.get(pos)));
@@ -103,7 +104,8 @@ public class BatchIteratorTester {
 
         List<Object[]> secondResult = BatchRowVisitor.visitRows(
             it, Collectors.mapping(Row::materialize, Collectors.toList())).get(10, TimeUnit.SECONDS);
-        assertThat(firstResult, Matchers.contains(secondResult.toArray(new Object[0][])));
+        checkResult(firstResult, secondResult);
+        //assertThat(firstResult, Matchers.contains(secondResult.toArray(new Object[0][])));
     }
 
     private void testIllegalStateIsRaisedIfMoveIsCalledWhileLoadingNextBatch(BatchIterator it) {
@@ -193,12 +195,10 @@ public class BatchIteratorTester {
 
     private void testBehaviourAfterClose(BatchIterator it) {
         InputList inputs = it.rowData();
-        assertThat(inputs.size(), greaterThan(0));
-
-
+        assertThat(inputs.size(), greaterThan(-1));
         it.close();
         // after close the rowData call is still valid
-        assertThat(it.rowData().size(), greaterThan(0));
+        assertThat(it.rowData().size(), greaterThan(-1));
 
         expectFailure(it::moveNext, IllegalStateException.class, "moveNext must fail after close");
         expectFailure(it::moveToStart, IllegalStateException.class, "moveToStart must fail after close");
@@ -210,7 +210,15 @@ public class BatchIteratorTester {
         consumer.accept(it, null);
 
         List<Object[]> result = consumer.getResult();
-        assertThat(result, Matchers.contains(expectedResult.toArray(new Object[0])));
+        checkResult(expectedResult, result);
+    }
+
+    private static void checkResult(List<Object[]> expected, List<Object[]> actual) {
+        if (expected.isEmpty()){
+            assertThat(actual, empty());
+        } else {
+            assertThat(actual, Matchers.contains(expected.toArray(new Object[0])));
+        }
     }
 
     private static void expectFailure(Runnable runnable,

@@ -21,11 +21,11 @@
 
 package io.crate.operation.collect;
 
+import io.crate.data.InputList;
 import io.crate.data.Row;
 import io.crate.data.RowsBatchIterator;
+import io.crate.data.IterableBackedBatchIterator;
 import io.crate.operation.projectors.RowReceiver;
-
-import java.util.Collections;
 
 public final class RowsCollector {
 
@@ -33,11 +33,11 @@ public final class RowsCollector {
     }
 
     public static CrateCollector empty(RowReceiver rowDownstream) {
-        return new BatchIteratorCollector(RowsBatchIterator.empty(), rowDownstream);
+        return new BatchIteratorCollector(IterableBackedBatchIterator.empty(), rowDownstream);
     }
 
-    public static CrateCollector single(Row row, RowReceiver rowDownstream) {
-        return new BatchIteratorCollector(RowsBatchIterator.newInstance(Collections.singletonList(row), row.numColumns()), rowDownstream);
+    public static CrateCollector single(InputList inputs, RowReceiver rowDownstream) {
+        return new BatchIteratorCollector(IterableBackedBatchIterator.singleRow(inputs), rowDownstream);
     }
 
     public static CrateCollector forRows(Iterable<Row> rows, int numCols, RowReceiver rowReceiver) {

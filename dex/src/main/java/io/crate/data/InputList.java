@@ -52,6 +52,38 @@ public interface InputList extends Iterable<Input<?>> {
      */
     int size();
 
+    InputList EMPTY = new InputList() {
+        @Override
+        public Input<?> get(int index) {
+            throw new IndexOutOfBoundsException("No input found at index: " + index);
+        }
+
+        @Override
+        public int size() {
+            return 0;
+        }
+    };
+
+    @Override
+    default Iterator<Input<?>> iterator() {
+        return new Iterator<Input<?>>() {
+            int i = -1;
+
+            @Override
+            public boolean hasNext() {
+                return i + 1 < size();
+            }
+
+            @Override
+            public Input<?> next() {
+                if (size() > i) {
+                    return get(++i);
+                }
+                throw new NoSuchElementException("Iterator exhausted");
+            }
+        };
+    }
+
     /**
      * Creates a new input list with a single column using the given supplier as data source.
      *
@@ -74,26 +106,6 @@ public interface InputList extends Iterable<Input<?>> {
             @Override
             public int size() {
                 return 1;
-            }
-        };
-    }
-
-    @Override
-    default Iterator<Input<?>> iterator() {
-        return new Iterator<Input<?>>() {
-            int i = 0;
-
-            @Override
-            public boolean hasNext() {
-                return i + 1 < size();
-            }
-
-            @Override
-            public Input<?> next() {
-                if (size() > i) {
-                    return get(i);
-                }
-                throw new NoSuchElementException("Iterator exhausted");
             }
         };
     }
